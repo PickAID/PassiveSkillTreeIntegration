@@ -30,4 +30,13 @@ class IntegrationBootstrapTest {
         assertTrue(bootstrap.managesFeature("pointblank"));
         assertEquals(false, bootstrap.managesFeature("irons_spellbooks"));
     }
+
+    @Test
+    void registersOnlyAdaptersForLoadedMods() {
+        LoadedModSet loaded = modId -> Set.of("tacz", "pointblank").contains(modId);
+
+        IntegrationBootstrap bootstrap = new IntegrationBootstrap(loaded);
+
+        assertEquals(Set.of("tacz", "pointblank"), bootstrap.gunPlatformRegistry().ids());
+    }
 }
