@@ -2,7 +2,7 @@ package org.crychicteam.passiveintegration.mixins.conditions;
 
 import daripher.skilltree.skill.bonus.condition.item.EquipmentCondition;
 import net.minecraft.world.item.ItemStack;
-import org.crychicteam.passiveintegration.PassiveIntegration;
+import com.pickaid.passiveintegration.PassiveIntegration;
 import org.crychicteam.passiveintegration.optional.cgm.OptionalBonusCgmAction;
 import org.crychicteam.passiveintegration.optional.cgm.OptionalBonusTaczAction;
 import org.spongepowered.asm.mixin.Mixin;

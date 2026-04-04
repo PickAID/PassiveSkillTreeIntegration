@@ -5,20 +5,12 @@ import com.pickaid.passiveintegration.bootstrap.LoadedModSet;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.crychicteam.passiveintegration.config.CgmConfig;
-import org.crychicteam.passiveintegration.config.GunAbilityConfig;
-import org.crychicteam.passiveintegration.events.PassiveIntegrationSkillTreeSync;
 import org.crychicteam.passiveintegration.events.tacz.TACZGunsEvents;
-import org.crychicteam.passiveintegration.init.PassiveIntegrationBonuses;
-import org.crychicteam.passiveintegration.init.PassiveIntegrationDamageConditions;
-import org.crychicteam.passiveintegration.network.PassiveIntegrationNetwork;
-import org.crychicteam.passiveintegration.util.GunAbilityHandler;
 
 import java.util.logging.Logger;
 
@@ -38,18 +30,11 @@ public class PassiveIntegration
         LoadedModSet loaded = modId -> ModList.get().isLoaded(modId);
         this.bootstrap = new IntegrationBootstrap(loaded);
 		ModLoadingContext cxt = ModLoadingContext.get();
-		IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
-		PassiveIntegrationBonuses.REGISTRY.register(modEventBus);
-		PassiveIntegrationDamageConditions.REGISTRY.register(modEventBus);
-		PassiveIntegrationNetwork.init();
-		cxt.registerConfig(ModConfig.Type.COMMON, GunAbilityConfig.SPEC, "passiveintegration-gun-ability.toml");
 		registerConfig(cxt, "cgm", CgmConfig.SPEC);
 		registerEvents();
 	}
 
 	private void registerEvents() {
-		MinecraftForge.EVENT_BUS.addListener(GunAbilityHandler::handlePlayerTick);
-		MinecraftForge.EVENT_BUS.addListener(PassiveIntegrationSkillTreeSync::handleDatapackSync);
 		if (isFeatureEnabled("tacz")) {
 			MinecraftForge.EVENT_BUS.addListener(TACZGunsEvents::handleCritBonuses);
 			MinecraftForge.EVENT_BUS.addListener(TACZGunsEvents::handleRetrievalBonus);
