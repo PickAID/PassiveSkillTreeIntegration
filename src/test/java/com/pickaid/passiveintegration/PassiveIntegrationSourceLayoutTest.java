@@ -17,9 +17,11 @@ class PassiveIntegrationSourceLayoutTest {
         Path oldEntrypoint = projectRoot.resolve("src/main/java/org/crychicteam/passiveintegration/PassiveIntegration.java");
         Path removedMixin = projectRoot.resolve("src/main/java/org/crychicteam/passiveintegration/mixins/conditions/EnchantedConditionMixin.java");
         Path mixinConfig = projectRoot.resolve("src/main/resources/mixins.passiveintegration.json");
+        Path buildGradle = projectRoot.resolve("build.gradle");
 
         String source = Files.readString(movedEntrypoint);
         String mixinConfigSource = Files.readString(mixinConfig);
+        String buildGradleSource = Files.readString(buildGradle);
 
         assertFalse(Files.exists(oldEntrypoint));
         assertFalse(Files.exists(removedMixin));
@@ -46,5 +48,8 @@ class PassiveIntegrationSourceLayoutTest {
         assertFalse(source.contains("new ResourceLocation(MOD_ID, path) == null"));
         assertTrue(source.contains("return new ResourceLocation(MOD_ID, path);"));
         assertTrue(source.contains("MinecraftForge.EVENT_BUS.addListener(TACZGunsEvents::entityKilledByGunEvent);"));
+        assertTrue(buildGradleSource.contains("useJUnitPlatform()"));
+        assertTrue(buildGradleSource.contains("testImplementation \"org.junit.jupiter:junit-jupiter-api:5.10.2\""));
+        assertTrue(buildGradleSource.contains("testRuntimeOnly \"org.junit.jupiter:junit-jupiter-engine:5.10.2\""));
     }
 }

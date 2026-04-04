@@ -199,6 +199,8 @@ repositories {
 
 dependencies {
     minecraft "net.neoforged:forge:${config.mc_version}-${config.forge_version}"
+    testImplementation "org.junit.jupiter:junit-jupiter-api:5.10.2"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.10.2"
     compileOnly(annotationProcessor("com.github.llamalad7.mixinextras:mixinextras-common:${config.mixin_extras_version}"))
 
 //    implementation fg.deobf("com.tterrag.registrate:Registrate:${config.registrate_version}")
@@ -337,6 +339,11 @@ dependencies {
             }
         }
     } else libDir.mkdir();
+}
+
+
+test {
+    useJUnitPlatform()
 }
 
 def resourceTargets = ['META-INF/mods.toml', 'pack.mcmeta']
