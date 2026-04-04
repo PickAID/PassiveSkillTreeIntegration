@@ -8,7 +8,6 @@
   "mixins": [
     "integrations.cgm.ReloadTrackerMixin",
     "integrations.cgm.ServerPlayHandlerMixin",
-    "conditions.EnchantedConditionMixin",
     "conditions.EquipmentConditionMixin",
     "conditions.ProjectileDamageConditionMixin",
     "integrations.cgm.ProjectileEntityCritMixin",
