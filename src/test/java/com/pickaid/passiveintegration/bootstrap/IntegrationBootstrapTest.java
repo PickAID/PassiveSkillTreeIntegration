@@ -1,6 +1,7 @@
 package com.pickaid.passiveintegration.bootstrap;
 
 import org.junit.jupiter.api.Test;
+import org.crychicteam.passiveintegration.util.GunCompatHelper;
 
 import java.util.Set;
 
@@ -38,5 +39,18 @@ class IntegrationBootstrapTest {
         IntegrationBootstrap bootstrap = new IntegrationBootstrap(loaded);
 
         assertEquals(Set.of("tacz", "pointblank"), bootstrap.gunPlatformRegistry().ids());
+    }
+
+    @Test
+    void legacyGunCompatFacadeCanUseBootstrapRegistry() {
+        LoadedModSet loaded = modId -> Set.of("tacz", "pointblank").contains(modId);
+        IntegrationBootstrap bootstrap = new IntegrationBootstrap(loaded);
+
+        GunCompatHelper.useRegistryForTesting(bootstrap.gunPlatformRegistry());
+        try {
+            assertEquals(Set.of("tacz", "pointblank"), GunCompatHelper.adapterIdsForTesting());
+        } finally {
+            GunCompatHelper.resetRegistryForTesting();
+        }
     }
 }
