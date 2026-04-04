@@ -23,7 +23,7 @@ public class PassiveIntegration
 
 	public static ResourceLocation id(String path)
 	{
-		return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
+		return new ResourceLocation(MOD_ID, path);
 	}
 
 	public PassiveIntegration() {
@@ -36,9 +36,8 @@ public class PassiveIntegration
 
 	private void registerEvents() {
 		if (isFeatureEnabled("tacz")) {
-			MinecraftForge.EVENT_BUS.addListener(TACZGunsEvents::handleCritBonuses);
 			MinecraftForge.EVENT_BUS.addListener(TACZGunsEvents::handleRetrievalBonus);
-			MinecraftForge.EVENT_BUS.addListener(TACZGunsEvents::retrieveStuckAmmo);
+			MinecraftForge.EVENT_BUS.addListener(TACZGunsEvents::entityKilledByGunEvent);
 		}
 		if (isLoaded("irons_spellbooks")) {
 
