@@ -19,4 +19,15 @@ class IntegrationBootstrapTest {
         assertTrue(bootstrap.isFeatureEnabled("pointblank"));
         assertEquals(false, bootstrap.isFeatureEnabled("cgm"));
     }
+
+    @Test
+    void knowsWhichFeaturesItManages() {
+        IntegrationBootstrap bootstrap = new IntegrationBootstrap(modId -> false);
+
+        assertTrue(bootstrap.managesFeature("kubejs"));
+        assertTrue(bootstrap.managesFeature("cgm"));
+        assertTrue(bootstrap.managesFeature("tacz"));
+        assertTrue(bootstrap.managesFeature("pointblank"));
+        assertEquals(false, bootstrap.managesFeature("irons_spellbooks"));
+    }
 }

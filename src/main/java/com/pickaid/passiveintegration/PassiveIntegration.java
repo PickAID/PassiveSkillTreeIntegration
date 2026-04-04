@@ -54,10 +54,10 @@ public class PassiveIntegration
 	}
 
     private boolean isFeatureEnabled(String modId) {
-        return switch (modId) {
-            case "kubejs", "cgm", "tacz", "pointblank" -> bootstrap.isFeatureEnabled(modId);
-            default -> isLoaded(modId);
-        };
+        if (bootstrap.managesFeature(modId)) {
+            return bootstrap.isFeatureEnabled(modId);
+        }
+        return isLoaded(modId);
     }
 
 	public static Boolean isLoaded(String mod) {

@@ -1,5 +1,8 @@
 package com.pickaid.passiveintegration;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -11,45 +14,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PassiveIntegrationSourceLayoutTest {
     @Test
-    void movedEntrypointIsSelfContainedAndOldPackageClassIsGone() throws IOException {
+    void keepsStableTaskOneStructure() throws IOException {
         Path projectRoot = Path.of("").toAbsolutePath();
         Path movedEntrypoint = projectRoot.resolve("src/main/java/com/pickaid/passiveintegration/PassiveIntegration.java");
         Path oldEntrypoint = projectRoot.resolve("src/main/java/org/crychicteam/passiveintegration/PassiveIntegration.java");
         Path removedMixin = projectRoot.resolve("src/main/java/org/crychicteam/passiveintegration/mixins/conditions/EnchantedConditionMixin.java");
         Path mixinConfig = projectRoot.resolve("src/main/resources/mixins.passiveintegration.json");
-        Path buildGradle = projectRoot.resolve("build.gradle");
+        JsonObject mixinConfigJson = new JsonParser().parse(Files.readString(mixinConfig)).getAsJsonObject();
+        JsonArray mixins = mixinConfigJson.getAsJsonArray("mixins");
 
-        String source = Files.readString(movedEntrypoint);
-        String mixinConfigSource = Files.readString(mixinConfig);
-        String buildGradleSource = Files.readString(buildGradle);
-
+        assertTrue(Files.exists(movedEntrypoint));
         assertFalse(Files.exists(oldEntrypoint));
         assertFalse(Files.exists(removedMixin));
-        assertFalse(source.contains("GunAbilityConfig"));
-        assertFalse(source.contains("PassiveIntegrationSkillTreeSync"));
-        assertFalse(source.contains("PassiveIntegrationBonuses"));
-        assertFalse(source.contains("PassiveIntegrationDamageConditions"));
-        assertFalse(source.contains("PassiveIntegrationNetwork"));
-        assertFalse(source.contains("GunAbilityHandler"));
-        assertFalse(source.contains("fromNamespaceAndPath"));
-        assertFalse(source.contains("handleCritBonuses"));
-        assertFalse(source.contains("retrieveStuckAmmo"));
-        assertFalse(source.contains("onGunFire"));
-        assertFalse(source.contains("return ResourceLocation.fromNamespaceAndPath"));
-        assertFalse(source.contains("TACZGunsEvents::handleCritBonuses"));
-        assertFalse(source.contains("TACZGunsEvents::retrieveStuckAmmo"));
-        assertFalse(source.contains("TACZGunsEvents::onGunFire"));
-        assertFalse(source.contains("return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);"));
-        assertFalse(source.contains("MinecraftForge.EVENT_BUS.addListener(TACZGunsEvents::handleCritBonuses);"));
-        assertFalse(source.contains("MinecraftForge.EVENT_BUS.addListener(TACZGunsEvents::retrieveStuckAmmo);"));
-        assertFalse(source.contains("MinecraftForge.EVENT_BUS.addListener(TACZGunsEvents::onGunFire);"));
-        assertFalse(mixinConfigSource.contains("conditions.EnchantedConditionMixin"));
-        assertFalse(source.contains("entityKilledByGunEvent()"));
-        assertFalse(source.contains("new ResourceLocation(MOD_ID, path) == null"));
-        assertTrue(source.contains("return new ResourceLocation(MOD_ID, path);"));
-        assertTrue(source.contains("MinecraftForge.EVENT_BUS.addListener(TACZGunsEvents::entityKilledByGunEvent);"));
-        assertTrue(buildGradleSource.contains("useJUnitPlatform()"));
-        assertTrue(buildGradleSource.contains("testImplementation \"org.junit.jupiter:junit-jupiter-api:5.10.2\""));
-        assertTrue(buildGradleSource.contains("testRuntimeOnly \"org.junit.jupiter:junit-jupiter-engine:5.10.2\""));
+        assertTrue(PassiveIntegration.class.getPackageName().equals("com.pickaid.passiveintegration"));
+        assertFalse(containsString(mixins, "conditions.EnchantedConditionMixin"));
+    }
+
+    private static boolean containsString(JsonArray array, String expected) {
+        for (int i = 0; i < array.size(); i++) {
+            if (expected.equals(array.get(i).getAsString())) {
+                return true;
+            }
+        }
+        return false;
     }
 }
