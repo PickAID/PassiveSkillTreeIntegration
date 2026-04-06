@@ -89,7 +89,7 @@ public final class GunAbilityHandler {
             long currentTick = player.level().getGameTime();
             AmmoBurstStateData updated = handleAboutToEnd(player, state, stats, currentTick, AmmoBurstFinalReason.MANUAL);
             storeStateData(data, updated, stats.maxEnergy);
-            return ActivationResult.DEACTIVATED;
+            return mapStopStateToResult(updated.runtimeState());
         }
 
         boolean hasUnlockBonus = hasUnlockBonus(player);
@@ -238,7 +238,7 @@ public final class GunAbilityHandler {
             AmmoBurstFinalReason sourceReason
     ) {
         return switch (decision) {
-            case END_NOW -> AmmoBurstStateData.off(0.0F);
+            case END_NOW -> AmmoBurstStateData.off(Math.max(0.0F, state.energy()));
             case REFUND_AND_CONTINUE -> AmmoBurstStateData.active(Math.max(0.0F, refundEnergy));
             case ENTER_ZERO_SUSTAIN -> new AmmoBurstStateData(
                     AmmoBurstRuntimeState.ZERO_SUSTAIN,
@@ -251,6 +251,12 @@ public final class GunAbilityHandler {
                     0
             );
         };
+    }
+
+    static ActivationResult mapStopStateToResult(AmmoBurstRuntimeState runtimeState) {
+        return runtimeState == AmmoBurstRuntimeState.OFF
+                ? ActivationResult.DEACTIVATED
+                : ActivationResult.STOP_REDIRECTED;
     }
 
     static AmmoBurstStateData applySustainDecision(
@@ -726,6 +732,8 @@ public final class GunAbilityHandler {
             case DEACTIVATED -> player.displayClientMessage(
                     Component.translatable("message.passiveintegration.ammo_burst_deactivated"),
                     true);
+            case STOP_REDIRECTED -> {
+            }
             case MISSING_ENERGY -> player.displayClientMessage(
                     Component.translatable("message.passiveintegration.ammo_burst_missing_energy"),
                     true);
@@ -754,6 +762,7 @@ public final class GunAbilityHandler {
     public enum ActivationResult {
         ACTIVATED,
         DEACTIVATED,
+        STOP_REDIRECTED,
         DISABLED,
         MISSING_ENERGY,
         MISSING_UNLOCK,

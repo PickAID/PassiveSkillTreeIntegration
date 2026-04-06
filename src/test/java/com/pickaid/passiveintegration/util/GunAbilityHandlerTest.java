@@ -97,6 +97,24 @@ class GunAbilityHandlerTest {
     }
 
     @Test
+    void endNowDecisionPreservesRemainingEnergy() {
+        AmmoBurstStateData state = AmmoBurstStateData.active(9.5F);
+
+        AmmoBurstStateData updated = GunAbilityHandler.applyAboutToEndDecision(
+                state,
+                AmmoBurstAboutToEndDecision.END_NOW,
+                0.0F,
+                0,
+                0,
+                200L,
+                AmmoBurstFinalReason.MANUAL
+        );
+
+        assertEquals(AmmoBurstRuntimeState.OFF, updated.runtimeState());
+        assertEquals(9.5F, updated.energy());
+    }
+
+    @Test
     void zeroSustainDecisionStoresSchedule() {
         AmmoBurstStateData state = AmmoBurstStateData.active(0.0F);
 
@@ -134,5 +152,21 @@ class GunAbilityHandlerTest {
 
         assertEquals(AmmoBurstRuntimeState.ACTIVE, updated.runtimeState());
         assertEquals(18.0F, updated.energy());
+    }
+
+    @Test
+    void stopResultTracksRedirectedState() {
+        assertEquals(
+                GunAbilityHandler.ActivationResult.DEACTIVATED,
+                GunAbilityHandler.mapStopStateToResult(AmmoBurstRuntimeState.OFF)
+        );
+        assertEquals(
+                GunAbilityHandler.ActivationResult.STOP_REDIRECTED,
+                GunAbilityHandler.mapStopStateToResult(AmmoBurstRuntimeState.ACTIVE)
+        );
+        assertEquals(
+                GunAbilityHandler.ActivationResult.STOP_REDIRECTED,
+                GunAbilityHandler.mapStopStateToResult(AmmoBurstRuntimeState.ZERO_SUSTAIN)
+        );
     }
 }
