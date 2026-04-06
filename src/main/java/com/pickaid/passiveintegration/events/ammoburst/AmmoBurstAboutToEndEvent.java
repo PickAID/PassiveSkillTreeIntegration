@@ -52,15 +52,20 @@ public class AmmoBurstAboutToEndEvent extends AmmoBurstEvent {
     public void endNow() {
         this.decision = AmmoBurstAboutToEndDecision.END_NOW;
         this.refundEnergy = 0.0F;
+        this.sustainStartDelayTicks = 0;
+        this.sustainIntervalTicks = 1;
     }
 
     public void refundAndContinue(float amount) {
         this.decision = AmmoBurstAboutToEndDecision.REFUND_AND_CONTINUE;
         this.refundEnergy = Math.max(0.0F, amount);
+        this.sustainStartDelayTicks = 0;
+        this.sustainIntervalTicks = 1;
     }
 
     public void enterZeroSustain(int startDelayTicks, int intervalTicks) {
         this.decision = AmmoBurstAboutToEndDecision.ENTER_ZERO_SUSTAIN;
+        this.refundEnergy = 0.0F;
         this.sustainStartDelayTicks = Math.max(0, startDelayTicks);
         this.sustainIntervalTicks = Math.max(1, intervalTicks);
     }

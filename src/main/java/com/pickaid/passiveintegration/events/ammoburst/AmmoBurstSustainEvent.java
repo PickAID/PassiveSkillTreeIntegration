@@ -70,10 +70,12 @@ public class AmmoBurstSustainEvent extends Event {
 
     public void continueSustain() {
         this.decision = AmmoBurstSustainDecision.CONTINUE;
+        this.refundEnergy = 0.0F;
     }
 
     public void terminate() {
         this.decision = AmmoBurstSustainDecision.TERMINATE;
+        this.refundEnergy = 0.0F;
     }
 
     public void exitWithRefund(float amount) {
