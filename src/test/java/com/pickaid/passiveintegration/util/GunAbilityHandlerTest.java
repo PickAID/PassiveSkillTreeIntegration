@@ -4,6 +4,7 @@ import com.pickaid.passiveintegration.events.ammoburst.AmmoBurstAboutToEndDecisi
 import com.pickaid.passiveintegration.events.ammoburst.AmmoBurstFinalReason;
 import com.pickaid.passiveintegration.events.ammoburst.AmmoBurstRuntimeState;
 import com.pickaid.passiveintegration.events.ammoburst.AmmoBurstSustainDecision;
+import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -78,6 +79,17 @@ class GunAbilityHandlerTest {
         assertEquals(22.5F, GunAbilityHandler.clampActivationCost(22.5F, 30.0F));
         assertEquals(30.0F, GunAbilityHandler.clampActivationCost(120.0F, 30.0F));
         assertEquals(0.0F, GunAbilityHandler.clampActivationCost(-5.0F, 30.0F));
+    }
+
+    @Test
+    void tryStartAdjustedStatsReapplyCoreBounds() {
+        var stats = GunAbilityHandler.sanitizeStats(0.0F, -5.0F, -10.0F, 25.0F);
+
+        assertEquals(1.0F, stats.maxEnergy());
+        assertEquals(0.0F, stats.regenPerSecond());
+        assertEquals(0.0F, stats.drainPerSecond());
+        assertEquals(1.0F, stats.activationCost());
+        assertEquals(1.0F, GunAbilityHandler.clampEnergy(25.0F, stats.maxEnergy()));
     }
 
     @Test
@@ -185,6 +197,24 @@ class GunAbilityHandlerTest {
         assertTrue(GunAbilityHandler.isStateActiveForReporting(AmmoBurstRuntimeState.ACTIVE));
         assertTrue(GunAbilityHandler.isStateActiveForReporting(AmmoBurstRuntimeState.ZERO_SUSTAIN));
         assertFalse(GunAbilityHandler.isStateActiveForReporting(AmmoBurstRuntimeState.OFF));
+    }
+
+    @Test
+    void disabledShutdownRetainsOnlyRedirectedStates() {
+        assertTrue(GunAbilityHandler.shouldRetainStateAfterDisabledRedirect(AmmoBurstRuntimeState.ACTIVE));
+        assertTrue(GunAbilityHandler.shouldRetainStateAfterDisabledRedirect(AmmoBurstRuntimeState.ZERO_SUSTAIN));
+        assertFalse(GunAbilityHandler.shouldRetainStateAfterDisabledRedirect(AmmoBurstRuntimeState.OFF));
+    }
+
+    @Test
+    void disabledRedirectPendingMarkerCanBeClearedOnResume() {
+        CompoundTag data = new CompoundTag();
+
+        GunAbilityHandler.markDisabledRedirectPending(data);
+        assertTrue(GunAbilityHandler.isDisabledRedirectPending(data));
+
+        GunAbilityHandler.clearDisabledRedirectPending(data);
+        assertFalse(GunAbilityHandler.isDisabledRedirectPending(data));
     }
 
     @Test

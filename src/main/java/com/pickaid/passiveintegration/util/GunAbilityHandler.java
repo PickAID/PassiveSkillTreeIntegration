@@ -35,6 +35,7 @@ public final class GunAbilityHandler {
     private static final String ENERGY_TAG = "AmmoBurstEnergy";
     private static final String RUNTIME_STATE_TAG = "AmmoBurstRuntimeState";
     private static final String SOURCE_REASON_TAG = "AmmoBurstSourceReason";
+    private static final String DISABLED_REDIRECT_PENDING_TAG = "AmmoBurstDisabledRedirectPending";
     private static final String SUSTAIN_START_DELAY_TAG = "AmmoBurstSustainStartDelayTicks";
     private static final String SUSTAIN_INTERVAL_TAG = "AmmoBurstSustainIntervalTicks";
     private static final String NEXT_TRIGGER_TICK_TAG = "AmmoBurstNextTriggerTick";
@@ -82,13 +83,22 @@ public final class GunAbilityHandler {
 
         AmmoBurstStats stats = getStats(player);
         CompoundTag data = getAbilityData(player, stats.maxEnergy);
+        clearDisabledRedirectPending(data);
         AmmoBurstStateData state = getStateData(data, stats.maxEnergy);
         float currentEnergy = state.energy();
 
         if (isToggleStopState(state.runtimeState())) {
             long currentTick = player.level().getGameTime();
-            AmmoBurstStateData updated = handleAboutToEnd(player, state, stats, currentTick, AmmoBurstFinalReason.MANUAL);
+            AboutToEndTransition transition = handleAboutToEnd(
+                    player,
+                    state,
+                    stats,
+                    currentTick,
+                    AmmoBurstFinalReason.MANUAL
+            );
+            AmmoBurstStateData updated = transition.updatedState();
             storeStateData(data, updated, stats.maxEnergy);
+            postPendingEndEvent(player, updated.energy(), stats, transition.endEventDispatch());
             return mapStopStateToResult(updated.runtimeState());
         }
 
@@ -110,13 +120,13 @@ public final class GunAbilityHandler {
             return ActivationResult.BLOCKED_BY_SCRIPT;
         }
 
-        currentEnergy = Mth.clamp(tryStartEvent.getCurrentEnergy(), 0.0F, tryStartEvent.getMaxEnergy());
-        stats = new AmmoBurstStats(
+        stats = sanitizeStats(
                 tryStartEvent.getMaxEnergy(),
                 tryStartEvent.getRegenPerSecond(),
                 tryStartEvent.getDrainPerSecond(),
                 tryStartEvent.getActivationCost()
         );
+        currentEnergy = clampEnergy(tryStartEvent.getCurrentEnergy(), stats.maxEnergy());
         ignoreUnlockRequirement = tryStartEvent.isIgnoreUnlockRequirement();
         ignoreSupportedGunRequirement = tryStartEvent.isIgnoreSupportedGunRequirement();
 
@@ -154,14 +164,24 @@ public final class GunAbilityHandler {
 
         AmmoBurstStats stats = getStats(player);
         CompoundTag data = getAbilityData(player, stats.maxEnergy);
+        clearDisabledRedirectPending(data);
         AmmoBurstStateData state = getStateData(data, stats.maxEnergy);
         AmmoBurstStateData updated = state;
+        EndEventDispatch endEventDispatch = null;
         long currentTick = player.level().getGameTime();
 
         switch (state.runtimeState()) {
             case ACTIVE -> {
                 if (GunAbilityConfig.REQUIRE_UNLOCK_BONUS.get() && !hasUnlockBonus(player)) {
-                    updated = handleAboutToEnd(player, state, stats, currentTick, AmmoBurstFinalReason.UNLOCK_LOST);
+                    AboutToEndTransition transition = handleAboutToEnd(
+                            player,
+                            state,
+                            stats,
+                            currentTick,
+                            AmmoBurstFinalReason.UNLOCK_LOST
+                    );
+                    updated = transition.updatedState();
+                    endEventDispatch = transition.endEventDispatch();
                 } else {
                     float nextEnergy = advanceEnergy(
                             state.energy(),
@@ -171,7 +191,15 @@ public final class GunAbilityHandler {
                             true
                     );
                     if (nextEnergy <= ENERGY_EPSILON) {
-                        updated = handleAboutToEnd(player, AmmoBurstStateData.active(0.0F), stats, currentTick, AmmoBurstFinalReason.ENERGY_DEPLETED);
+                        AboutToEndTransition transition = handleAboutToEnd(
+                                player,
+                                AmmoBurstStateData.active(0.0F),
+                                stats,
+                                currentTick,
+                                AmmoBurstFinalReason.ENERGY_DEPLETED
+                        );
+                        updated = transition.updatedState();
+                        endEventDispatch = transition.endEventDispatch();
                     } else {
                         updated = AmmoBurstStateData.active(nextEnergy);
                     }
@@ -189,7 +217,15 @@ public final class GunAbilityHandler {
             }
             case ZERO_SUSTAIN -> {
                 if (GunAbilityConfig.REQUIRE_UNLOCK_BONUS.get() && !hasUnlockBonus(player)) {
-                    updated = handleAboutToEnd(player, state, stats, currentTick, AmmoBurstFinalReason.UNLOCK_LOST);
+                    AboutToEndTransition transition = handleAboutToEnd(
+                            player,
+                            state,
+                            stats,
+                            currentTick,
+                            AmmoBurstFinalReason.UNLOCK_LOST
+                    );
+                    updated = transition.updatedState();
+                    endEventDispatch = transition.endEventDispatch();
                 } else if (currentTick >= state.nextTriggerTick()) {
                     AmmoBurstSustainEvent sustainEvent = new AmmoBurstSustainEvent(
                             player,
@@ -209,10 +245,7 @@ public final class GunAbilityHandler {
                             currentTick
                     );
                     if (updated.runtimeState() == AmmoBurstRuntimeState.OFF) {
-                        postEndEvent(
-                                player,
-                                updated.energy(),
-                                stats,
+                        endEventDispatch = new EndEventDispatch(
                                 AmmoBurstFinalReason.SUSTAIN_TERMINATED,
                                 resolveEndEventSourceReason(state, AmmoBurstFinalReason.SUSTAIN_TERMINATED),
                                 didPassThroughZeroSustain(state)
@@ -224,6 +257,7 @@ public final class GunAbilityHandler {
 
         boolean changed = !updated.equals(state);
         storeStateData(data, updated, stats.maxEnergy);
+        postPendingEndEvent(player, updated.energy(), stats, endEventDispatch);
 
         if (changed || player.tickCount % 20 == 0) {
             syncState(player);
@@ -435,13 +469,33 @@ public final class GunAbilityHandler {
         if (data != null) {
             AmmoBurstStateData state = getStateData(data, Math.max(0.0F, data.getFloat(ENERGY_TAG)));
             if (state.runtimeState() != AmmoBurstRuntimeState.OFF) {
-                handleAboutToEnd(
+                if (isDisabledRedirectPending(data)) {
+                    if (sendSync) {
+                        syncState(player);
+                    }
+                    return;
+                }
+
+                AboutToEndTransition transition = handleAboutToEnd(
                         player,
                         state,
                         AmmoBurstStats.disabled(),
                         player.level().getGameTime(),
                         AmmoBurstFinalReason.DISABLED
                 );
+                AmmoBurstStateData updated = transition.updatedState();
+                if (shouldRetainStateAfterDisabledRedirect(updated.runtimeState())) {
+                    // Disabled teardown has no live stat envelope; preserve redirected state until the feature returns.
+                    storeStateData(data, updated, Float.MAX_VALUE);
+                    markDisabledRedirectPending(data);
+                } else {
+                    player.getPersistentData().remove(ROOT_TAG);
+                }
+                postPendingEndEvent(player, updated.energy(), AmmoBurstStats.disabled(), transition.endEventDispatch());
+                if (sendSync) {
+                    syncState(player);
+                }
+                return;
             }
         }
         player.getPersistentData().remove(ROOT_TAG);
@@ -472,23 +526,33 @@ public final class GunAbilityHandler {
                 1.0F
         );
 
-        float maxEnergy = Math.max(
-                1.0F,
-                applyMultiplier(GunAbilityConfig.BASE_MAX_ENERGY.get().floatValue(), maxEnergyMultiplier)
+        return sanitizeStats(
+                applyMultiplier(GunAbilityConfig.BASE_MAX_ENERGY.get().floatValue(), maxEnergyMultiplier),
+                applyMultiplier(
+                        GunAbilityConfig.BASE_ENERGY_REGEN_PER_SECOND.get().floatValue(),
+                        regenMultiplier
+                ),
+                applyMultiplier(
+                        GunAbilityConfig.BASE_ENERGY_DRAIN_PER_SECOND.get().floatValue(),
+                        drainMultiplier
+                ),
+                applyMultiplier(GunAbilityConfig.ACTIVATION_COST.get().floatValue(), activationCostMultiplier)
         );
-        float regenPerSecond = applyMultiplier(
-                GunAbilityConfig.BASE_ENERGY_REGEN_PER_SECOND.get().floatValue(),
-                regenMultiplier
+    }
+
+    static AmmoBurstStats sanitizeStats(
+            float maxEnergy,
+            float regenPerSecond,
+            float drainPerSecond,
+            float activationCost
+    ) {
+        float sanitizedMaxEnergy = Math.max(1.0F, maxEnergy);
+        return new AmmoBurstStats(
+                sanitizedMaxEnergy,
+                Math.max(0.0F, regenPerSecond),
+                Math.max(0.0F, drainPerSecond),
+                clampActivationCost(activationCost, sanitizedMaxEnergy)
         );
-        float drainPerSecond = applyMultiplier(
-                GunAbilityConfig.BASE_ENERGY_DRAIN_PER_SECOND.get().floatValue(),
-                drainMultiplier
-        );
-        float activationCost = clampActivationCost(
-                applyMultiplier(GunAbilityConfig.ACTIVATION_COST.get().floatValue(), activationCostMultiplier),
-                maxEnergy
-        );
-        return new AmmoBurstStats(maxEnergy, regenPerSecond, drainPerSecond, activationCost);
     }
 
     static float applyMultiplier(float baseValue, float multiplier) {
@@ -535,6 +599,9 @@ public final class GunAbilityHandler {
                     RUNTIME_STATE_TAG,
                     data.getBoolean(ACTIVE_TAG) ? AmmoBurstRuntimeState.ACTIVE.name() : AmmoBurstRuntimeState.OFF.name()
             );
+        }
+        if (data.contains(DISABLED_REDIRECT_PENDING_TAG, Tag.TAG_BYTE) && !data.getBoolean(DISABLED_REDIRECT_PENDING_TAG)) {
+            data.remove(DISABLED_REDIRECT_PENDING_TAG);
         }
         if (!data.contains(SUSTAIN_START_DELAY_TAG, Tag.TAG_INT)) {
             data.putInt(SUSTAIN_START_DELAY_TAG, 0);
@@ -617,7 +684,7 @@ public final class GunAbilityHandler {
         };
     }
 
-    private static AmmoBurstStateData handleAboutToEnd(
+    private static AboutToEndTransition handleAboutToEnd(
             ServerPlayer player,
             AmmoBurstStateData state,
             AmmoBurstStats stats,
@@ -645,17 +712,30 @@ public final class GunAbilityHandler {
                 currentTick,
                 sourceReason
         );
-        if (updated.runtimeState() == AmmoBurstRuntimeState.OFF) {
-            postEndEvent(
-                    player,
-                    updated.energy(),
-                    stats,
+        EndEventDispatch endEventDispatch = updated.runtimeState() == AmmoBurstRuntimeState.OFF
+                ? new EndEventDispatch(
                     sourceReason,
                     resolveEndEventSourceReason(state, sourceReason),
                     didPassThroughZeroSustain(state)
-            );
-        }
-        return updated;
+                )
+                : null;
+        return new AboutToEndTransition(updated, endEventDispatch);
+    }
+
+    static boolean shouldRetainStateAfterDisabledRedirect(AmmoBurstRuntimeState runtimeState) {
+        return runtimeState != AmmoBurstRuntimeState.OFF;
+    }
+
+    static boolean isDisabledRedirectPending(CompoundTag data) {
+        return data.getBoolean(DISABLED_REDIRECT_PENDING_TAG);
+    }
+
+    static void markDisabledRedirectPending(CompoundTag data) {
+        data.putBoolean(DISABLED_REDIRECT_PENDING_TAG, true);
+    }
+
+    static void clearDisabledRedirectPending(CompoundTag data) {
+        data.remove(DISABLED_REDIRECT_PENDING_TAG);
     }
 
     private static AmmoBurstRuntimeState parseRuntimeState(String value, boolean activeFlag) {
@@ -738,7 +818,26 @@ public final class GunAbilityHandler {
         ));
     }
 
-    private static float clampEnergy(float energy, float maxEnergy) {
+    private static void postPendingEndEvent(
+            ServerPlayer player,
+            float currentEnergy,
+            AmmoBurstStats stats,
+            EndEventDispatch dispatch
+    ) {
+        if (dispatch == null) {
+            return;
+        }
+        postEndEvent(
+                player,
+                currentEnergy,
+                stats,
+                dispatch.finalReason(),
+                dispatch.sourceReason(),
+                dispatch.passedThroughZeroSustain()
+        );
+    }
+
+    static float clampEnergy(float energy, float maxEnergy) {
         return Mth.clamp(energy, 0.0F, Math.max(0.0F, maxEnergy));
     }
 
@@ -801,7 +900,7 @@ public final class GunAbilityHandler {
         BLOCKED_BY_SCRIPT
     }
 
-    private record AmmoBurstStats(
+    static record AmmoBurstStats(
             float maxEnergy,
             float regenPerSecond,
             float drainPerSecond,
@@ -810,5 +909,18 @@ public final class GunAbilityHandler {
         private static AmmoBurstStats disabled() {
             return new AmmoBurstStats(0.0F, 0.0F, 0.0F, 0.0F);
         }
+    }
+
+    private record EndEventDispatch(
+            AmmoBurstFinalReason finalReason,
+            AmmoBurstFinalReason sourceReason,
+            boolean passedThroughZeroSustain
+    ) {
+    }
+
+    private record AboutToEndTransition(
+            AmmoBurstStateData updatedState,
+            EndEventDispatch endEventDispatch
+    ) {
     }
 }
