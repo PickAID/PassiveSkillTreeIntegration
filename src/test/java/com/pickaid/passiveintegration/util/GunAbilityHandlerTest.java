@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class GunAbilityHandlerTest {
     @Test
@@ -176,6 +178,65 @@ class GunAbilityHandlerTest {
         assertEquals(true, GunAbilityHandler.isToggleStopState(AmmoBurstRuntimeState.ACTIVE));
         assertEquals(true, GunAbilityHandler.isToggleStopState(AmmoBurstRuntimeState.ZERO_SUSTAIN));
         assertEquals(false, GunAbilityHandler.isToggleStopState(AmmoBurstRuntimeState.OFF));
+    }
+
+    @Test
+    void activeStateReportingIncludesZeroSustain() {
+        assertTrue(GunAbilityHandler.isStateActiveForReporting(AmmoBurstRuntimeState.ACTIVE));
+        assertTrue(GunAbilityHandler.isStateActiveForReporting(AmmoBurstRuntimeState.ZERO_SUSTAIN));
+        assertFalse(GunAbilityHandler.isStateActiveForReporting(AmmoBurstRuntimeState.OFF));
+    }
+
+    @Test
+    void zeroSustainEndMetadataPreservesSourceAndPassThrough() {
+        AmmoBurstStateData zeroSustainState = AmmoBurstStateData.zeroSustain(
+                AmmoBurstFinalReason.ENERGY_DEPLETED,
+                20,
+                220L,
+                1,
+                20
+        );
+
+        assertEquals(
+                AmmoBurstFinalReason.ENERGY_DEPLETED,
+                GunAbilityHandler.resolveEndEventSourceReason(zeroSustainState, AmmoBurstFinalReason.MANUAL)
+        );
+        assertTrue(GunAbilityHandler.didPassThroughZeroSustain(zeroSustainState));
+    }
+
+    @Test
+    void activeEndMetadataUsesFinalReasonWithoutZeroSustainFlag() {
+        AmmoBurstStateData activeState = AmmoBurstStateData.active(10.0F);
+
+        assertEquals(
+                AmmoBurstFinalReason.MANUAL,
+                GunAbilityHandler.resolveEndEventSourceReason(activeState, AmmoBurstFinalReason.MANUAL)
+        );
+        assertFalse(GunAbilityHandler.didPassThroughZeroSustain(activeState));
+    }
+
+    @Test
+    void zeroSustainRedirectKeepsOriginalSourceReason() {
+        AmmoBurstStateData state = AmmoBurstStateData.zeroSustain(
+                AmmoBurstFinalReason.ENERGY_DEPLETED,
+                20,
+                220L,
+                2,
+                40
+        );
+
+        AmmoBurstStateData updated = GunAbilityHandler.applyAboutToEndDecision(
+                state,
+                AmmoBurstAboutToEndDecision.ENTER_ZERO_SUSTAIN,
+                0.0F,
+                5,
+                15,
+                300L,
+                AmmoBurstFinalReason.MANUAL
+        );
+
+        assertEquals(AmmoBurstRuntimeState.ZERO_SUSTAIN, updated.runtimeState());
+        assertEquals(AmmoBurstFinalReason.ENERGY_DEPLETED, updated.sourceReason());
     }
 
     @Test
