@@ -3,7 +3,7 @@ package com.pickaid.passiveintegration.events.ammoburst;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.eventbus.api.Event;
 
-public class AmmoBurstEvent extends Event {
+public abstract class AmmoBurstEvent extends Event {
     private final ServerPlayer player;
     private final float currentEnergy;
     private final float maxEnergy;
@@ -11,7 +11,7 @@ public class AmmoBurstEvent extends Event {
     private final float drainPerSecond;
     private final float activationCost;
 
-    public AmmoBurstEvent(
+    protected AmmoBurstEvent(
             ServerPlayer player,
             float currentEnergy,
             float maxEnergy,

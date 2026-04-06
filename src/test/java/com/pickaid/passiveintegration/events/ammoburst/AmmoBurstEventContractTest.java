@@ -9,16 +9,18 @@ class AmmoBurstEventContractTest {
     void aboutToEndDefaultsToImmediateEnd() {
         AmmoBurstAboutToEndEvent event = new AmmoBurstAboutToEndEvent(
                 null,
+                AmmoBurstFinalReason.ENERGY_DEPLETED,
                 30.0F,
                 100.0F,
                 2.0F,
                 10.0F,
                 15.0F,
-                AmmoBurstFinalReason.ENERGY_DEPLETED,
                 10.0F
         );
 
         assertEquals(AmmoBurstAboutToEndDecision.END_NOW, event.getDecision());
+        event.setSustainIntervalTicks(0);
+        assertEquals(1, event.getSustainIntervalTicks());
     }
 
     @Test
@@ -34,5 +36,7 @@ class AmmoBurstEventContractTest {
         );
 
         assertEquals(AmmoBurstSustainDecision.CONTINUE, event.getDecision());
+        event.setRefundEnergy(8.0F);
+        assertEquals(8.0F, event.getRefundEnergy());
     }
 }

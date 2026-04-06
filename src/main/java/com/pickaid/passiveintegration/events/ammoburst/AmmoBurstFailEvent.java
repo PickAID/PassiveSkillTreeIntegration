@@ -7,12 +7,12 @@ public class AmmoBurstFailEvent extends AmmoBurstEvent {
 
     public AmmoBurstFailEvent(
             ServerPlayer player,
+            AmmoBurstFailReason reason,
             float currentEnergy,
             float maxEnergy,
             float regenPerSecond,
             float drainPerSecond,
-            float activationCost,
-            AmmoBurstFailReason reason
+            float activationCost
     ) {
         super(player, currentEnergy, maxEnergy, regenPerSecond, drainPerSecond, activationCost);
         this.reason = reason;

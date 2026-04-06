@@ -2,14 +2,14 @@ package com.pickaid.passiveintegration.events.ammoburst;
 
 import net.minecraft.server.level.ServerPlayer;
 
-public class AmmoBurstMutableStatsEvent extends AmmoBurstEvent {
+public abstract class AmmoBurstMutableStatsEvent extends AmmoBurstEvent {
     private float currentEnergy;
     private float maxEnergy;
     private float regenPerSecond;
     private float drainPerSecond;
     private float activationCost;
 
-    public AmmoBurstMutableStatsEvent(
+    protected AmmoBurstMutableStatsEvent(
             ServerPlayer player,
             float currentEnergy,
             float maxEnergy,
@@ -18,11 +18,11 @@ public class AmmoBurstMutableStatsEvent extends AmmoBurstEvent {
             float activationCost
     ) {
         super(player, currentEnergy, maxEnergy, regenPerSecond, drainPerSecond, activationCost);
-        this.currentEnergy = Math.max(0.0F, currentEnergy);
-        this.maxEnergy = Math.max(0.0F, maxEnergy);
-        this.regenPerSecond = Math.max(0.0F, regenPerSecond);
-        this.drainPerSecond = Math.max(0.0F, drainPerSecond);
-        this.activationCost = Math.max(0.0F, activationCost);
+        this.currentEnergy = currentEnergy;
+        this.maxEnergy = maxEnergy;
+        this.regenPerSecond = regenPerSecond;
+        this.drainPerSecond = drainPerSecond;
+        this.activationCost = activationCost;
     }
 
     @Override

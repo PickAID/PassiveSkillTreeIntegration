@@ -12,12 +12,12 @@ public class AmmoBurstAboutToEndEvent extends AmmoBurstEvent {
 
     public AmmoBurstAboutToEndEvent(
             ServerPlayer player,
+            AmmoBurstFinalReason reason,
             float currentEnergy,
             float maxEnergy,
             float regenPerSecond,
             float drainPerSecond,
             float activationCost,
-            AmmoBurstFinalReason reason,
             float drainThisStep
     ) {
         super(player, currentEnergy, maxEnergy, regenPerSecond, drainPerSecond, activationCost);
