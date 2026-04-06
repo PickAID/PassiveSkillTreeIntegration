@@ -131,6 +131,7 @@ class GunAbilityHandlerTest {
         assertEquals(AmmoBurstRuntimeState.ZERO_SUSTAIN, updated.runtimeState());
         assertEquals(210L, updated.nextTriggerTick());
         assertEquals(20, updated.sustainIntervalTicks());
+        assertEquals(10, updated.sustainAgeTicks());
     }
 
     @Test
@@ -168,5 +169,34 @@ class GunAbilityHandlerTest {
                 GunAbilityHandler.ActivationResult.STOP_REDIRECTED,
                 GunAbilityHandler.mapStopStateToResult(AmmoBurstRuntimeState.ZERO_SUSTAIN)
         );
+    }
+
+    @Test
+    void toggleStopStateIncludesZeroSustain() {
+        assertEquals(true, GunAbilityHandler.isToggleStopState(AmmoBurstRuntimeState.ACTIVE));
+        assertEquals(true, GunAbilityHandler.isToggleStopState(AmmoBurstRuntimeState.ZERO_SUSTAIN));
+        assertEquals(false, GunAbilityHandler.isToggleStopState(AmmoBurstRuntimeState.OFF));
+    }
+
+    @Test
+    void sustainContinueAgeIncludesInitialDelay() {
+        AmmoBurstStateData state = GunAbilityHandler.applyAboutToEndDecision(
+                AmmoBurstStateData.active(0.0F),
+                AmmoBurstAboutToEndDecision.ENTER_ZERO_SUSTAIN,
+                0.0F,
+                10,
+                20,
+                200L,
+                AmmoBurstFinalReason.ENERGY_DEPLETED
+        );
+        assertEquals(10, state.sustainAgeTicks());
+
+        AmmoBurstStateData continued = GunAbilityHandler.applySustainDecision(
+                state,
+                AmmoBurstSustainDecision.CONTINUE,
+                0.0F,
+                210L
+        );
+        assertEquals(30, continued.sustainAgeTicks());
     }
 }

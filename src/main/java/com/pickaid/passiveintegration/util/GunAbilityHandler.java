@@ -85,9 +85,21 @@ public final class GunAbilityHandler {
         AmmoBurstStateData state = getStateData(data, stats.maxEnergy);
         float currentEnergy = state.energy();
 
-        if (state.runtimeState() == AmmoBurstRuntimeState.ACTIVE) {
+        if (isToggleStopState(state.runtimeState())) {
             long currentTick = player.level().getGameTime();
-            AmmoBurstStateData updated = handleAboutToEnd(player, state, stats, currentTick, AmmoBurstFinalReason.MANUAL);
+            AmmoBurstStateData updated = state.runtimeState() == AmmoBurstRuntimeState.ACTIVE
+                    ? handleAboutToEnd(player, state, stats, currentTick, AmmoBurstFinalReason.MANUAL)
+                    : AmmoBurstStateData.off(state.energy());
+            if (state.runtimeState() == AmmoBurstRuntimeState.ZERO_SUSTAIN) {
+                postEndEvent(
+                        player,
+                        updated.energy(),
+                        stats,
+                        AmmoBurstFinalReason.MANUAL,
+                        state.sourceReason() != null ? state.sourceReason() : AmmoBurstFinalReason.MANUAL,
+                        true
+                );
+            }
             storeStateData(data, updated, stats.maxEnergy);
             return mapStopStateToResult(updated.runtimeState());
         }
@@ -248,9 +260,13 @@ public final class GunAbilityHandler {
                     Math.max(1, sustainIntervalTicks),
                     currentTick + Math.max(0, sustainStartDelayTicks),
                     0,
-                    0
+                    Math.max(0, sustainStartDelayTicks)
             );
         };
+    }
+
+    static boolean isToggleStopState(AmmoBurstRuntimeState runtimeState) {
+        return runtimeState == AmmoBurstRuntimeState.ACTIVE || runtimeState == AmmoBurstRuntimeState.ZERO_SUSTAIN;
     }
 
     static ActivationResult mapStopStateToResult(AmmoBurstRuntimeState runtimeState) {
