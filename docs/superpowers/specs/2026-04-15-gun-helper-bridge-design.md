@@ -103,7 +103,7 @@ Must not own:
 
 ### Unified Bridge
 
-`com.pickaid.passiveintegration.integration.gun.GunDataBridge`
+`com.pickaid.passiveintegration.service.gun.GunDataBridge`
 
 This is the generic entrypoint for code that only needs to know whether a stack is a supported gun and, if so, what the normalized data looks like.
 
