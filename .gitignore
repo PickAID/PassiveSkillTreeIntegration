@@ -20,7 +20,10 @@ build
 # other
 eclipse
 run
+logs
+PassiveBurst
 docs/superpowers/
+.worktrees/
 
 # Files from Forge MDK
 forge*changelog.txt
