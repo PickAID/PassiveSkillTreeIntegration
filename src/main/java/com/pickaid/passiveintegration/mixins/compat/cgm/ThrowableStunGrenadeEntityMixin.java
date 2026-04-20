@@ -45,7 +45,8 @@ public abstract class ThrowableStunGrenadeEntityMixin {
                 adjustedDuration,
                 originalInstance.getAmplifier(),
                 originalInstance.isAmbient(),
-                originalInstance.isVisible()
+                originalInstance.isVisible(),
+                originalInstance.showIcon()
         ));
     }
 }
