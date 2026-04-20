@@ -39,6 +39,12 @@ mandatory=true
 versionRange="[0.6.1,)"
 ordering="NONE"
 side="BOTH"
+[[dependencies.${mod_id}]]
+modId="guncore"
+mandatory=true
+versionRange="[0.1.0,)"
+ordering="AFTER"
+side="BOTH"
 #[[dependencies.${mod_id}]]
 #    modId="curios"
 #    mandatory=true
