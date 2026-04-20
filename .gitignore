@@ -22,6 +22,7 @@ eclipse
 run
 logs
 PassiveBurst
+.local/
 docs/superpowers/
 .worktrees/
 
