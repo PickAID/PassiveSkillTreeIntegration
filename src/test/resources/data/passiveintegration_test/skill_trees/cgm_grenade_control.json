@@ -1,0 +1,8 @@
+{
+  "id": "passiveintegration_test:cgm_grenade_control",
+  "skillIds": [
+    "passiveintegration_test:cgm_stun_duration_taken",
+    "passiveintegration_test:cgm_flash_duration_applied"
+  ],
+  "skillLimitations": {}
+}

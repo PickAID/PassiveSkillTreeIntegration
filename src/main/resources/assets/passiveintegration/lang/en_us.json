@@ -1,0 +1,4 @@
+{
+  "bonus.passiveintegration.cgm_stun_grenade_duration_taken_reduction": "Stun grenade duration taken reduced by %s%%",
+  "bonus.passiveintegration.cgm_flash_grenade_duration_applied_bonus": "Self-thrown flash and stun duration increased by %s%%"
+}

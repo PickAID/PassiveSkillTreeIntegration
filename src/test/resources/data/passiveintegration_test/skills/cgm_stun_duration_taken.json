@@ -1,0 +1,23 @@
+{
+  "id": "passiveintegration_test:cgm_stun_duration_taken",
+  "bonuses": [
+    {
+      "type": "passiveintegration:cgm_stun_grenade_duration_taken_reduction",
+      "levels": 1.0
+    }
+  ],
+  "requirements": [],
+  "directConnections": [
+    "passiveintegration_test:cgm_flash_duration_applied"
+  ],
+  "longConnections": [],
+  "oneWayConnections": [],
+  "tags": [],
+  "backgroundTexture": "skilltree:textures/icons/background/lesser.png",
+  "iconTexture": "skilltree:textures/icons/potion_gray_big.png",
+  "borderTexture": "skilltree:textures/tooltip/lesser.png",
+  "positionX": 0.0,
+  "positionY": 0.0,
+  "buttonSize": 16,
+  "isStartingPoint": true
+}

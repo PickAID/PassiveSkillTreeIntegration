@@ -1,8 +1,5 @@
 package com.pickaid.passiveintegration;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -14,28 +11,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PassiveIntegrationSourceLayoutTest {
     @Test
-    void keepsStableTaskOneStructure() throws IOException {
+    void sourceSetKeepsDatapackFixturesButNoDirectSkilltreeCodeOwnership() throws IOException {
         Path projectRoot = Path.of("").toAbsolutePath();
-        Path movedEntrypoint = projectRoot.resolve("src/main/java/com/pickaid/passiveintegration/PassiveIntegration.java");
-        Path oldEntrypoint = projectRoot.resolve("src/main/java/org/crychicteam/passiveintegration/PassiveIntegration.java");
-        Path removedMixin = projectRoot.resolve("src/main/java/org/crychicteam/passiveintegration/mixins/conditions/EnchantedConditionMixin.java");
-        Path mixinConfig = projectRoot.resolve("src/main/resources/mixins.passiveintegration.json");
-        JsonObject mixinConfigJson = new JsonParser().parse(Files.readString(mixinConfig)).getAsJsonObject();
-        JsonArray mixins = mixinConfigJson.getAsJsonArray("mixins");
+        Path clientRoot = projectRoot.resolve("src/main/java/com/pickaid/passiveintegration/client");
+        Path mainSkilltree = projectRoot.resolve("src/main/java/com/pickaid/passiveintegration/skilltree");
+        Path testSkilltree = projectRoot.resolve("src/test/java/com/pickaid/passiveintegration/skilltree");
+        Path datapackFixture = projectRoot.resolve(
+                "src/test/resources/data/passiveintegration_test/skill_trees/cgm_grenade_control.json"
+        );
+        Path legacyNamespace = projectRoot.resolve("src/main/java/org/crychicteam/passiveintegration");
+        Path generatedResourceSanitizer = projectRoot.resolve("src/main/java/com/pickaid/passiveintegration/util/GeneratedResourceSanitizer.java");
+        Path buildGradle = projectRoot.resolve("build.gradle");
+        String buildGradleText = Files.readString(buildGradle);
 
-        assertTrue(Files.exists(movedEntrypoint));
-        assertFalse(Files.exists(oldEntrypoint));
-        assertFalse(Files.exists(removedMixin));
-        assertTrue(PassiveIntegration.class.getPackageName().equals("com.pickaid.passiveintegration"));
-        assertFalse(containsString(mixins, "conditions.EnchantedConditionMixin"));
-    }
-
-    private static boolean containsString(JsonArray array, String expected) {
-        for (int i = 0; i < array.size(); i++) {
-            if (expected.equals(array.get(i).getAsString())) {
-                return true;
-            }
-        }
-        return false;
+        assertFalse(Files.exists(clientRoot));
+        assertFalse(Files.exists(mainSkilltree));
+        assertFalse(Files.exists(testSkilltree));
+        assertFalse(Files.exists(legacyNamespace));
+        assertFalse(Files.exists(generatedResourceSanitizer));
+        assertTrue(Files.exists(datapackFixture));
+        assertTrue(buildGradleText.contains("PassiveSkillTree-1.20.1-BETA-0.7.4-all.jar"));
     }
 }

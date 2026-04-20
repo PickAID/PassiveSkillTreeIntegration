@@ -1,0 +1,21 @@
+{
+  "id": "passiveintegration_test:cgm_flash_duration_applied",
+  "bonuses": [
+    {
+      "type": "passiveintegration:cgm_flash_grenade_duration_applied_bonus",
+      "levels": 1.0
+    }
+  ],
+  "requirements": [],
+  "directConnections": [],
+  "longConnections": [],
+  "oneWayConnections": [],
+  "tags": [],
+  "backgroundTexture": "skilltree:textures/icons/background/lesser.png",
+  "iconTexture": "skilltree:textures/icons/potion_white_big.png",
+  "borderTexture": "skilltree:textures/tooltip/lesser.png",
+  "positionX": 40.0,
+  "positionY": 0.0,
+  "buttonSize": 16,
+  "isStartingPoint": false
+}
