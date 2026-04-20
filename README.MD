@@ -1,38 +1,64 @@
-<div align="center"><img height="200" src="https://docs.mihono.cn/logo.png" width="200"/></div>
+# PassiveIntegration
 
-# Minecraft Forge Mod Template 
-This is a simple repository that serves as a template for creating a Minecraft 1.20+ mod.
+`PassiveIntegration` is the **SkillTree-facing integration layer only** for features that should not live inside
+`PassiveSkillTree`, `PassiveBurst`, or `GunCore`.
 
-# Prerequisites
-- Intellij IDEA
-- Installed Java 17 JDK
-- If you want to publish your mod:
-  - For uploading on Modrinth, assign `MODRINTH_TOKEN` environment variable to your [Modrinth authorization token](https://modrinth.com/settings/account)
-  - For uploading on CurseForge, assign `CURSEFORGE_TOKEN` environment variable to your [CurseForge token](https://legacy.curseforge.com/account/api-tokens)
-    - To open environment variable editor in Windows, Press `Win+R`, paste this command `rundll32 sysdm.cpl,EditEnvironmentVariables` and hit enter. 
-- Any modifications with previous step require a full computer restart in order for the environment variables to be accessible to applications.
+## Responsibility Split
 
-# Setup procedure
-- Copy this repository to your computer either by:
-  - Select the branch that you want to make the mod on, and download the repository as ZIP file;
-  - Clone the repository and checkout the branch of version you are interested in.
-- Open `build.gradle` with IntelliJ IDEA as a project.
-- Wait for things to set up before proceeding.
+- `GunCore`
+  - owns gun-domain abstractions, bridge resolution, snapshots, and deep per-platform gun support
+- `PassiveBurst`
+  - owns the shared burst framework, runtime state, and control surface
+- `PassiveIntegration`
+  - owns SkillTree-facing carriers, bonuses, optional activation gates, mixin-backed gameplay hooks, and integration-specific config
 
-# Things you need to *edit*
-Before coding your awesome mod, you are going to need to fill out it's basic information.
-This is done in `build.txt` file.
+## Current Code Layout
 
-You will have to fill out `# Mod Info` category.
-If you don't want to use HammerLib, simply remove `hl_version` and delete the mod dependency in `/src/main/resources/META-INF/mods.toml`.
+- `src/main/java/com/pickaid/passiveintegration/PassiveIntegration.java`
+  - minimal mod entrypoint that delegates startup to `PassiveIntegrationBootstrap`
+- `src/main/java/com/pickaid/passiveintegration/bootstrap/PassiveIntegrationBootstrap.java`
+  - registers common config
+  - creates the `CarrierBinders` + `CarrierRegistry`
+  - binds active carrier catalogs (currently `compat/cgm/CgmCarrierCatalog`)
+  - exposes the carrier debug bridge
+- `src/main/java/com/pickaid/passiveintegration/compat/carrier/**`
+  - integration-local carrier model, activation records, registry, and binder layer for SkillTree serializers/listeners/requirements/item bonuses/skill bonuses
+  - binder implementations live under `src/main/java/com/pickaid/passiveintegration/compat/carrier/binding/**`
+- `src/main/java/com/pickaid/passiveintegration/optional/CarrierGates.java`
+  - optional dependency gates based on loaded mods and class presence
+- `src/main/java/com/pickaid/passiveintegration/compat/cgm/**`
+  - current concrete integration surface for CGM
+  - carrier catalog entries for grenade-related bonuses
+  - runtime grenade duration hooks and curve math
+  - config-backed duration curves in `compat/cgm/CgmGrenadeDurationCurves` (values sourced from `config/PassiveIntegrationCommonConfig`)
+  - bonus serializers for datapack-loaded SkillTree content
+- `src/main/java/com/pickaid/passiveintegration/mixins/compat/cgm/ThrowableStunGrenadeEntityMixin.java`
+  - redirects CGM stun grenade effect application into `CgmGrenadeEffectHooks`
+- `src/test/resources/data/passiveintegration_test/**`
+  - datapack fixtures used to test SkillTree-facing content shape
+  - not a local SkillTreeJS ownership layer (SkillTreeJS is not owned in this repository)
 
-Afterwards, fill out `cf_project` and `modrinth_project` (both are optional) with your project IDs (Modrinth is highyly recommended to allow for forge update checking)
+## Current Gameplay Features
 
-# Things you need to *know*
-`build_candidate` to `false` if you are building a public deploy.
-When the variable is left at `false`, each build will increment the last piece of SemVer (`mod_version`) to +1, so you don't have to worry about it every time.
-Otherwise, use `true` when you're building a dev build to test in a normal environment (like a modpack).
+- `passiveintegration:cgm_stun_grenade_duration_taken_reduction`
+  - reduces CGM blinded/deafened duration taken by the affected player
+  - uses an exponential per-level reduction curve from `PassiveIntegrationCommonConfig.cgmStunReductionPerLevel()`
+- `passiveintegration:cgm_flash_grenade_duration_applied_bonus`
+  - increases duration applied by self-thrown CGM flash or stun grenades
+  - uses an asymptotic growth curve with configurable cap and decay from `PassiveIntegrationCommonConfig`
+- `CgmGrenadeEffectHooks`
+  - only rewrites CGM blinded/deafened durations
+  - preserves the original amplifier, ambient flag, and visibility flag
 
-By default, the template project uses your Modrinth to perform forge version checking.
-The homepage is also set to Modrinth by default.
-If you ever wish to change this, do so in `/src/main/resources/META-INF/mods.toml`.
+## Deliberate Non-Ownership
+
+- no gun-domain bridge/helper/snapshot layer in this repository
+- no client runtime, network sync layer, or generated-resource sanitizing layer
+- no SkillTree editor widget ownership; integration bonuses throw if editor widgets are requested here
+- no local SkillTreeJS support surface; datapack fixtures exist only for tests and manual integration validation
+
+## Development Notes
+
+- Build `../GunCore` first, or pass `-PgunCoreJar=/abs/path/to/guncore-forge-1.20.1-<version>.jar` (or set `GUN_CORE_JAR`).
+- Local development can resolve `PassiveSkillTree-1.20.1-BETA-0.7.4-all.jar`; otherwise the build falls back to Curse Maven.
+- Do not reintroduce gun-domain ownership here. `compat.gun`, `bridge.gun`, `helper.gun`, and gun-specific abstraction layers belong in `GunCore`, not `PassiveIntegration`.
