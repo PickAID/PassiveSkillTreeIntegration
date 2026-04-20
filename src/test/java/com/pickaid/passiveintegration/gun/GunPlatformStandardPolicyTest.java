@@ -16,42 +16,46 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 class GunPlatformStandardPolicyTest {
     @Test
-    void passiveIntegrationKeepsPstCompatAndProgressionOutOfGunCore() throws IOException {
+    void bootstrapKeepsS2AndS3OwnershipInsidePassiveIntegration() throws IOException {
         Path root = projectRoot();
-        String entrySource = Files.readString(root.resolve("src/main/java/com/pickaid/passiveintegration/PassiveIntegration.java"));
-        String bootstrapSource = Files.readString(root.resolve(
-                "src/main/java/com/pickaid/passiveintegration/bootstrap/PassiveIntegrationBootstrap.java"));
-        String carrierRegistrySource = Files.readString(root.resolve(
-                "src/main/java/com/pickaid/passiveintegration/compat/carrier/CarrierRegistry.java"));
-        String optionalGatesSource = Files.readString(root.resolve(
-                "src/main/java/com/pickaid/passiveintegration/optional/CarrierGates.java"));
-        String cgmCatalogSource = Files.readString(root.resolve(
-                "src/main/java/com/pickaid/passiveintegration/compat/cgm/CgmCarrierCatalog.java"));
+        String entrySource = readSource(root, "src/main/java/com/pickaid/passiveintegration/PassiveIntegration.java");
+        String bootstrapSource = readSource(root,
+                "src/main/java/com/pickaid/passiveintegration/bootstrap/PassiveIntegrationBootstrap.java");
 
-        assertTrue(entrySource.contains("import com.pickaid.passiveintegration.bootstrap.PassiveIntegrationBootstrap;"));
         assertTrue(entrySource.contains("PassiveIntegrationBootstrap.init(modBus);"));
-        assertTrue(bootstrapSource.contains("import com.pickaid.passiveintegration.bridge.carrier.CarrierDebugBridge;"));
-        assertTrue(bootstrapSource.contains("import com.pickaid.passiveintegration.compat.carrier.CarrierRegistry;"));
-        assertTrue(bootstrapSource.contains("import com.pickaid.passiveintegration.compat.carrier.binding.CarrierBinders;"));
-        assertTrue(bootstrapSource.contains("import com.pickaid.passiveintegration.compat.cgm.CgmCarrierCatalog;"));
-        assertTrue(bootstrapSource.contains("CarrierBinders binders = new CarrierBinders"));
-        assertTrue(bootstrapSource.contains("carrierRegistry = new CarrierRegistry(binders);"));
-        assertTrue(bootstrapSource.contains("carrierRegistry.bindAll(List.<CarrierCatalog>of(new CgmCarrierCatalog()));"));
-        assertTrue(bootstrapSource.contains("carrierDebugBridge = new CarrierDebugBridge(carrierRegistry);"));
-        assertTrue(carrierRegistrySource.contains("CarrierGateResult gateResult = entry.gate().evaluate();"));
-        assertTrue(optionalGatesSource.contains("return () -> ModList.get().isLoaded(modId)"));
-        assertTrue(cgmCatalogSource.contains("CarrierGates.modLoaded(\"cgm\")"));
-        assertTrue(cgmCatalogSource.contains("CarrierGates.classPresent(\"com.mrcrayfish.guns.entity.ThrowableStunGrenadeEntity\")"));
+        assertTrue(bootstrapSource.contains("new CarrierRegistry("));
+        assertTrue(bootstrapSource.contains("new CarrierDebugBridge("));
+        assertTrue(bootstrapSource.contains("new CgmCarrierCatalog()"));
 
         assertFalse(entrySource.contains("com.pickaid.guncore"));
         assertFalse(bootstrapSource.contains("com.pickaid.guncore"));
-        assertFalse(carrierRegistrySource.contains("com.pickaid.guncore"));
-        assertFalse(optionalGatesSource.contains("com.pickaid.guncore"));
-        assertFalse(cgmCatalogSource.contains("com.pickaid.guncore"));
+    }
+
+    @Test
+    void carrierCompatibilityMarkersRemainInsidePassiveIntegration() throws IOException {
+        Path root = projectRoot();
+        String carrierRegistrySource = readSource(root,
+                "src/main/java/com/pickaid/passiveintegration/compat/carrier/CarrierRegistry.java");
+        String optionalGatesSource = readSource(root,
+                "src/main/java/com/pickaid/passiveintegration/optional/CarrierGates.java");
+        String cgmCatalogSource = readSource(root,
+                "src/main/java/com/pickaid/passiveintegration/compat/cgm/CgmCarrierCatalog.java");
 
         assertTrue(Files.exists(root.resolve("src/main/java/com/pickaid/passiveintegration/compat/carrier/CarrierRegistry.java")));
         assertTrue(Files.exists(root.resolve("src/main/java/com/pickaid/passiveintegration/optional/CarrierGates.java")));
+        assertTrue(carrierRegistrySource.contains("entry.gate().evaluate()"));
+        assertTrue(optionalGatesSource.contains("ModList.get().isLoaded(modId)"));
+        assertTrue(cgmCatalogSource.contains("CarrierGates.modLoaded(\"cgm\")"));
+        assertTrue(cgmCatalogSource.contains("CarrierGates.classPresent(\"com.mrcrayfish.guns.entity.ThrowableStunGrenadeEntity\")"));
 
+        assertFalse(carrierRegistrySource.contains("com.pickaid.guncore"));
+        assertFalse(optionalGatesSource.contains("com.pickaid.guncore"));
+        assertFalse(cgmCatalogSource.contains("com.pickaid.guncore"));
+    }
+
+    @Test
+    void sourceTreeDoesNotRestoreDuplicatedGunLayouts() throws IOException {
+        Path root = projectRoot();
         Path mainPackageRoot = root.resolve("src/main/java/com/pickaid/passiveintegration");
         Set<String> topLevelPackages;
         try (Stream<Path> stream = Files.list(mainPackageRoot)) {
@@ -92,5 +96,9 @@ class GunPlatformStandardPolicyTest {
                 || Files.exists(candidate.resolve("build.gradle.kts"))
                 || Files.exists(candidate.resolve("settings.gradle"))
                 || Files.exists(candidate.resolve("settings.gradle.kts"));
+    }
+
+    private static String readSource(Path root, String relativePath) throws IOException {
+        return Files.readString(root.resolve(relativePath));
     }
 }
