@@ -41,8 +41,6 @@ class GunPlatformStandardPolicyTest {
         String cgmCatalogSource = readSource(root,
                 "src/main/java/com/pickaid/passiveintegration/compat/cgm/CgmCarrierCatalog.java");
 
-        assertTrue(Files.exists(root.resolve("src/main/java/com/pickaid/passiveintegration/compat/carrier/CarrierRegistry.java")));
-        assertTrue(Files.exists(root.resolve("src/main/java/com/pickaid/passiveintegration/optional/CarrierGates.java")));
         assertTrue(carrierRegistrySource.contains("entry.gate().evaluate()"));
         assertTrue(optionalGatesSource.contains("ModList.get().isLoaded(modId)"));
         assertTrue(cgmCatalogSource.contains("CarrierGates.modLoaded(\"cgm\")"));
