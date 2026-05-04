@@ -11,7 +11,7 @@ class CgmGrenadeEffectHooksTest {
     void ownerBonusAndTargetBonusBothApplyToCgmBlindAndDeafenEffects() {
         PassiveIntegrationCommonConfig.overrideForTests(0.15D, 0.5D, 0.85D);
         int modified = CgmGrenadeEffectHooks.calculateDuration(
-                ResourceLocation.fromNamespaceAndPath("cgm", "blinded"),
+                new ResourceLocation("cgm", "blinded"),
                 200,
                 2.0D,
                 1.0D
@@ -24,7 +24,7 @@ class CgmGrenadeEffectHooksTest {
     void nonCgmEffectsPassThroughUntouched() {
         PassiveIntegrationCommonConfig.overrideForTests(0.15D, 0.5D, 0.85D);
         assertEquals(200, CgmGrenadeEffectHooks.calculateDuration(
-                ResourceLocation.fromNamespaceAndPath("minecraft", "blindness"),
+                new ResourceLocation("minecraft", "blindness"),
                 200,
                 3.0D,
                 3.0D

@@ -11,8 +11,8 @@ import net.minecraft.world.entity.projectile.ThrowableProjectile;
 import net.minecraftforge.registries.ForgeRegistries;
 
 public final class CgmGrenadeEffectHooks {
-    private static final ResourceLocation CGM_BLINDED = ResourceLocation.fromNamespaceAndPath("cgm", "blinded");
-    private static final ResourceLocation CGM_DEAFENED = ResourceLocation.fromNamespaceAndPath("cgm", "deafened");
+    private static final ResourceLocation CGM_BLINDED = new ResourceLocation("cgm", "blinded");
+    private static final ResourceLocation CGM_DEAFENED = new ResourceLocation("cgm", "deafened");
 
     private CgmGrenadeEffectHooks() {
     }

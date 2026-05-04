@@ -42,7 +42,7 @@ class CarrierEntryContractTest {
         binding.serializerBinder().accept(serializerFactory);
 
         assertEquals(CarrierKind.SKILL_BONUS, entry.kind());
-        assertEquals(ResourceLocation.fromNamespaceAndPath("passiveintegration", "cgm_stun_grenade_duration_taken_reduction"), entry.id());
+        assertEquals(new ResourceLocation("passiveintegration", "cgm_stun_grenade_duration_taken_reduction"), entry.id());
         assertEquals("cgm", entry.owner());
         assertEquals(CarrierDomain.GRENADE, entry.domain());
         assertEquals(CarrierSemantic.CONTROL_DURATION_TAKEN, entry.semantic());
