@@ -9,7 +9,7 @@ buildscript {
         }
     }
     dependencies {
-        classpath "gradle.plugin.com.matthewprenger:CurseGradle:1.4.+"
+        classpath "org.tomlj:tomlj:1.1.1"
         classpath 'org.spongepowered:mixingradle:0.7.+'
     }
 }
@@ -22,21 +22,24 @@ plugins {
 }
 
 apply plugin: 'idea'
+apply plugin: 'java-library'
 apply plugin: 'maven-publish'
-apply plugin: "com.matthewprenger.cursegradle"
 apply plugin: 'org.spongepowered.mixin'
 
 jarJar.enable()
 
-ext.configFile = file("build.txt")
-configFile.withReader {
-    def prop = new Properties()
-    prop.load(it)
-    project.ext.config = new ConfigSlurper().parse(prop)
-    project.ext.hasConfig = { key ->
-        return config.isSet(key);
-    }
-}
+apply from: 'gradle/template-config.gradle'
+
+def template = project.ext.template
+def templatePlatform = project.ext.templatePlatform
+def enabledFeatures = project.ext.enabledFeatures
+def templateDependencies = project.ext.templateDependencies
+def templateFeatureDependencies = project.ext.templateFeatureDependencies
+def templateDevPackDependencies = project.ext.templateDevPackDependencies
+def hasModrinthTarget = !template.modrinthProject.isBlank()
+def hasCurseforgeTarget = template.curseforgeProject > 0L
+def modrinthUploadTaskName = "uploadModrinth"
+def curseforgeUploadTaskName = "uploadCurseForge"
 
 version = config.mod_version
 group = config.maven_group
@@ -164,6 +167,16 @@ repositories {
     }
 }
 
+def passiveStJsJar = file("../PassiveSTJS/build/libs/PassiveSTJS-1.20.1-0.2.0.jar")
+if (passiveStJsJar.isFile()) {
+    println("PassiveSTJS jar: ${passiveStJsJar.absolutePath}")
+    repositories {
+        flatDir {
+            dirs passiveStJsJar.parentFile
+        }
+    }
+}
+
 minecraft {
     mappings channel: 'parchment', version: '2023.09.03-1.20.1'
     accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
@@ -178,7 +191,7 @@ minecraft {
             lazyToken 'minecraft_classpath', mainBootstrapClasspath
             def args = new ArrayList()
 
-            if (hasConfig("mc_user") && !config.mc_user.isEmpty()) {
+            if (rootProject.ext.hasConfig.call("mc_user") && !config.mc_user.isEmpty()) {
                 def userId = config.mc_user.split(',', 2)
                 args.add "--username"
                 args.add userId[0]
@@ -334,6 +347,8 @@ repositories {
 
 configurations {
     testCompileOnly.extendsFrom compileOnly
+    additionalRuntimeClasspath
+    runtimeClasspath.extendsFrom additionalRuntimeClasspath
 }
 
 dependencies {
@@ -341,89 +356,33 @@ dependencies {
     testRuntimeOnly "com.google.code.gson:gson:2.11.0"
     testImplementation "org.junit.jupiter:junit-jupiter-api:5.10.2"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.10.2"
-    compileOnly(annotationProcessor("com.github.llamalad7.mixinextras:mixinextras-common:${config.mixin_extras_version}"))
 
-//    implementation fg.deobf("com.tterrag.registrate:Registrate:${config.registrate_version}")
-//    jarJar(group: 'com.tterrag.registrate', name: 'Registrate', version: "[MC1.20,MC1.21)")
-
-    if (hasConfig("jei_version") && !config.jei_version.isEmpty()) {
-        compileOnly fg.deobf("mezz.jei:jei-${config.mc_version}-common-api:${config.jei_version}")
-        compileOnly fg.deobf("mezz.jei:jei-${config.mc_version}-forge-api:${config.jei_version}")
-        runtimeOnly fg.deobf("mezz.jei:jei-${config.mc_version}-forge:${config.jei_version}")
+    def addConfiguredDependency = { Map<String, Object> dependencySpec ->
+        def dependency = project.dependencies.create(dependencySpec.notation as String) {
+            transitive = dependencySpec.transitive
+        }
+        def resolvedDependency = dependencySpec.deobf ? fg.deobf(dependency) : dependency
+        if (dependencySpec.configuration == "jarJar") {
+            jarJar(group: dependencySpec.group, name: dependencySpec.artifact, version: dependencySpec.range) {
+                transitive = dependencySpec.transitive
+            }
+        } else {
+            add(dependencySpec.configuration as String, resolvedDependency)
+        }
     }
 
-    if (hasConfig("geckolib_version") && !config.geckolib_version.isEmpty()) {
-        implementation fg.deobf("software.bernie.geckolib:geckolib-neoforge-${config.mc_version}:${config.geckolib_version}")
-        implementation("com.eliotlash.mclib:mclib:20")
-    }
+    (project.ext.templateBuiltinDependencies + templateFeatureDependencies + templateDependencies + templateDevPackDependencies).each(addConfiguredDependency)
 
-    if (hasConfig("curios_version") && !config.curios_version.isEmpty()) {
-        implementation fg.deobf("top.theillusivec4.curios:curios-forge:${config.curios_version}")
-        runtimeOnly fg.deobf("top.theillusivec4.curios:curios-forge:${config.curios_version}")
-    }
-
-    if (hasConfig("playeranimator_version") && !config.playeranimator_version.isEmpty()) {
-        implementation fg.deobf("dev.kosmx.player-anim:player-animation-lib-forge:${config.playeranimator_version}")
-        runtimeOnly fg.deobf("io.github.kosmx.bendy-lib:bendy-lib-forge:${config.bendylib_version}")
-    }
-
-    if (hasConfig("enable_annotation") && Boolean.parseBoolean(config.enable_annotation)) {
-        compileOnly(annotationProcessor("org.spongepowered:mixin:0.8.7:processor"))
-    }
-
-    // Mixin extra
-    if (hasConfig("mixin_extras_version") && !config.mixin_extras_version.isEmpty()) {
-        implementation fg.deobf("com.github.llamalad7.mixinextras:mixinextras-forge:${config.mixin_extras_version}")
+    if (enabledFeatures.mixin_extras) {
         jarJar(group: 'com.github.llamalad7.mixinextras', name: 'mixinextras-forge', version: "[${config.mixin_extras_version},)")
     }
 
-    // Libraries jarjar.
-    if (hasConfig("cibrary_version") && !config.cibrary_version.isEmpty()) {
-        implementation fg.deobf("org.crychicteam.cibrary:cibrary:${config.cibrary_version}")
-        jarJar(group: 'org.crychicteam', name: 'cibrary', version: "[${config.cibrary_version},)")
-    }
-
-    if (hasConfig("l2damagetracker_version") && !config.l2damagetracker_version.isEmpty()) {
-        implementation fg.deobf("dev.xkmc.l2damagetracker:l2damagetracker:${config.l2damagetracker_version}")
-        jarJar(group: 'dev.xkmc', name: 'l2damagetracker', version: "[${config.l2damagetracker_version},)")
-    }
-
-    if (hasConfig("l2serial_version") && !config.l2serial_version.isEmpty()) {
-        implementation fg.deobf("dev.xkmc.l2serial:l2serial:${config.l2serial_version}")
-        jarJar(group: 'dev.xkmc', name: 'l2serial', version: "[${config.l2serial_version},)")
-    }
-    // attribute fix
-    implementation fg.deobf("curse.maven:attributefix-280510:7612291")
-    // max health fix
-    implementation fg.deobf("curse.maven:max-health-fix-492246:7612769")
-    // dummy target
-    implementation fg.deobf("curse.maven:mmmmmmmmmmmm-225738:4602101")
-    implementation fg.deobf("curse.maven:selene-499980:7664875")
-    // apple skin
-    implementation fg.deobf("curse.maven:appleskin-248787:4605078")
-
-    implementation fg.deobf("curse.maven:item-production-lib-950401:5114036")
-    implementation fg.deobf("curse.maven:framework-549225:7573740")
     implementation fg.deobf(passiveSkillTreeDependency)
     compileOnly fg.deobf(gunCoreDependency)
     runtimeOnly fg.deobf(gunCoreDependency)
-
-    [
-            "mrcrayfishs-gun-mod-unofficial-945471:7041829",
-            "timeless-and-classics-zero-1028108:7745481",
-            "vics-point-blank-961053:7664533",
-            "vanilla-animated-guns-1357310:7056729",
-            "scorched-guns-802940:7232063",
-            "just-enough-guns-820727:6808139"
-    ].each { coordinate ->
-        compileOnly fg.deobf("curse.maven:${coordinate}")
+    if (passiveStJsJar.isFile()) {
+        runtimeOnly fg.deobf("local.passivestjs:PassiveSTJS:1.20.1-0.2.0")
     }
-    // runtimeOnly fg.deobf("curse.maven:mrcrayfishs-gun-mod-unofficial-945471:7041829")
-    // runtimeOnly fg.deobf("curse.maven:timeless-and-classics-zero-1028108:7745481")
-    // runtimeOnly fg.deobf("curse.maven:vics-point-blank-961053:7664533")
-    // runtimeOnly fg.deobf("curse.maven:vanilla-animated-guns-1357310:7056729")
-    // runtimeOnly fg.deobf("curse.maven:scorched-guns-802940:7232063")
-    // runtimeOnly fg.deobf("curse.maven:just-enough-guns-820727:6808139")
 
     def libraries = new File(file("libraries"), "${config.mc_version}")
     if (!libraries.isDirectory()) libraries.mkdirs()
@@ -572,156 +531,164 @@ artifacts {
     archives srcJar
 }
 
-modrinth {
-    token = System.env.MODRINTH_TOKEN != null ? System.env.MODRINTH_TOKEN : "NONE"
-    projectId = config.modrinth_project
-    versionNumber = config.mod_version
-    versionType = config.release_type
-    uploadFile = jar
-    gameVersions = [config.mc_version]
-    loaders = ['Forge', 'NeoForge']
-    dependencies {
-        def mods = config.required_mods.split(";")
-        if (mods.length > 0 && (mods.length > 1 || !mods[0].isEmpty()))
-            for (final def one in mods) {
-                if (one.isBlank()) continue
-                if (one.startsWith("@")) {
-                    def pars = one.substring(1).split(":", 2)
-                    if (pars[0].equalsIgnoreCase("m")) {
-                        required.project pars[1].trim()
-                    }
-                } else
-                    required.project one.trim()
-            }
+def changelogHeadingVersion = { String headingText ->
+    headingText.trim().replaceFirst(/^\[([^\]]+)](?:\s*-\s*.*)?$/, '$1').replaceFirst(/^v(?=\d)/, "").trim()
+}
 
-        mods = config.optional_mods.split(";")
-        if (mods.length > 0 && (mods.length > 1 || !mods[0].isEmpty()))
-            for (final def one in mods) {
-                if (one.isBlank()) continue
-                if (one.startsWith("@")) {
-                    def pars = one.substring(1).split(":", 2)
-                    if (pars[0].equalsIgnoreCase("m")) {
-                        optional.project pars[1].trim()
-                    }
-                } else
-                    optional.project one.trim()
-            }
+def extractVersionChangelog = { String text, String version, String sourceLabel ->
+    def lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n", -1).toList()
+    def headingPattern = /^(#{1,6})\s+(.+?)\s*$/
+    def start = -1
+    def level = 0
+    def wanted = version.replaceFirst(/^v(?=\d)/, "")
+    lines.eachWithIndex { String line, int index ->
+        if (start >= 0) return
+        def matcher = line =~ headingPattern
+        if (matcher.matches() && changelogHeadingVersion(matcher[0][2]) == wanted) {
+            start = index + 1
+            level = matcher[0][1].length()
+        }
+    }
+    if (start < 0) {
+        throw new GradleException("Could not find changelog section for version ${version} in ${sourceLabel}")
+    }
+    def end = lines.size()
+    for (int index = start; index < lines.size(); index++) {
+        def matcher = lines[index] =~ headingPattern
+        if (matcher.matches() && matcher[0][1].length() <= level) {
+            end = index
+            break
+        }
+    }
+    def extracted = lines.subList(start, end).join("\n").trim()
+    if (extracted.isBlank()) {
+        throw new GradleException("Changelog section for version ${version} in ${sourceLabel} is empty")
+    }
+    extracted
+}
 
-        mods = config.incompatible_mods.split(";")
-        if (mods.length > 0 && (mods.length > 1 || !mods[0].isEmpty()))
-            for (final def one in mods) {
-                if (one.isBlank()) continue
-                if (one.startsWith("@")) {
-                    def pars = one.substring(1).split(":", 2)
-                    if (pars[0].equalsIgnoreCase("m")) {
-                        incompatible.project pars[1].trim()
-                    }
-                } else
-                    incompatible.project one.trim()
-            }
+def configuredText = { String inlineText, String relativeFile, String sectionMode, String fallbackText = "" ->
+    if (inlineText != null && !inlineText.isBlank()) return inlineText
+    if (relativeFile != null && !relativeFile.isBlank()) {
+        def source = file(relativeFile)
+        if (!source.isFile()) {
+            throw new GradleException("Configured publish text file does not exist: ${relativeFile}")
+        }
+        def text = source.getText("UTF-8")
+        return sectionMode == "full" ? text : extractVersionChangelog(text, template.finalVersion, relativeFile)
+    }
+    fallbackText
+}
 
-        mods = config.embedded_mods.split(";")
-        if (mods.length > 0 && (mods.length > 1 || !mods[0].isEmpty()))
-            for (final def one in mods) {
-                if (one.isBlank()) continue
-                if (one.startsWith("@")) {
-                    def pars = one.substring(1).split(":", 2)
-                    if (pars[0].equalsIgnoreCase("m")) {
-                        embedded.project pars[1].trim()
-                    }
-                } else
-                    embedded.project one.trim()
-            }
+def modrinthChangelogText = configuredText(template.publishModrinth.changelog, template.publishModrinth.changelogFile, template.publishModrinth.changelogSection, "No changelog was specified.")
+def curseforgeChangelogText = configuredText(template.publishCurseforge.changelog, template.publishCurseforge.changelogFile, template.publishCurseforge.changelogSection, "")
+def runtimeUploadJar = tasks.jar.archiveFile
+
+def curseforgeRelationSlugs = { String relationKey ->
+    def raw = config[relationKey]
+    if (raw == null || raw.toString().isBlank()) return []
+    raw.toString().split(";").collect { it.trim() }.findAll { !it.isBlank() }.collect { entry ->
+        if (!entry.startsWith("@")) return entry
+        def parts = entry.substring(1).split(":", 2)
+        parts.length == 2 && parts[0].equalsIgnoreCase("c") ? parts[1].trim() : ""
+    }.findAll { !it.isBlank() }
+}
+
+def writeMultipartText = { OutputStream output, String boundary, String name, String value ->
+    output.write("--${boundary}\r\n".getBytes("UTF-8"))
+    output.write("Content-Disposition: form-data; name=\"${name}\"\r\n\r\n".getBytes("UTF-8"))
+    output.write(value.getBytes("UTF-8"))
+    output.write("\r\n".getBytes("UTF-8"))
+}
+
+def writeMultipartFile = { OutputStream output, String boundary, String name, File file ->
+    output.write("--${boundary}\r\n".getBytes("UTF-8"))
+    output.write("Content-Disposition: form-data; name=\"${name}\"; filename=\"${file.name}\"\r\n".getBytes("UTF-8"))
+    output.write("Content-Type: application/java-archive\r\n\r\n".getBytes("UTF-8"))
+    file.withInputStream { input -> input.transferTo(output) }
+    output.write("\r\n".getBytes("UTF-8"))
+}
+
+tasks.register(modrinthUploadTaskName) {
+    group = "upload"
+    description = "Uploads the built runtime jar to Modrinth using project.toml settings."
+    dependsOn("validateUploadConfiguration")
+    dependsOn("reobfJar")
+    onlyIf { hasModrinthTarget }
+    doLast {
+        def token = System.env.MODRINTH_TOKEN ?: template.modrinthToken ?: ""
+        def metadata = [
+            project_id    : template.modrinthProject,
+            version_number: template.finalVersion,
+            version_title : template.publishModrinth.versionName,
+            version_type  : template.releaseType,
+            changelog     : modrinthChangelogText,
+            game_versions : template.publishModrinth.gameVersions,
+            loaders       : template.publishModrinth.loaders,
+            featured      : false,
+            dependencies  : [],
+            file_parts    : ["file"]
+        ]
+        def boundary = "----PickAID${System.currentTimeMillis()}"
+        def connection = (HttpURLConnection) new URL("https://api.modrinth.com/v2/version").openConnection()
+        connection.setRequestMethod("POST")
+        connection.setDoOutput(true)
+        connection.setRequestProperty("Authorization", token)
+        connection.setRequestProperty("User-Agent", "PickAIDTemplate/1.0")
+        connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=${boundary}")
+        connection.outputStream.withCloseable { output ->
+            writeMultipartText(output, boundary, "data", groovy.json.JsonOutput.toJson(metadata))
+            writeMultipartFile(output, boundary, "file", runtimeUploadJar.get().asFile)
+            output.write("--${boundary}--\r\n".getBytes("UTF-8"))
+        }
+        def responseCode = connection.responseCode
+        def responseText = responseCode >= 400 ? connection.errorStream?.getText("UTF-8") : connection.inputStream?.getText("UTF-8")
+        if (responseCode < 200 || responseCode >= 300) {
+            throw new GradleException("Modrinth upload failed with HTTP ${responseCode}: ${responseText ?: ''}")
+        }
+        logger.lifecycle("Modrinth upload accepted: ${responseText ?: "HTTP ${responseCode}"}")
     }
 }
 
-curseforge {
-    apiKey = System.env.CURSEFORGE_TOKEN != null ? System.env.CURSEFORGE_TOKEN : "NONE"
-    project {
-        id = config.cf_project
-        changelogType = 'html'
-        changelog = ""
-        releaseType = config.release_type
-        addGameVersion config.mc_version
-        addGameVersion "Forge"
-        addGameVersion "NeoForge"
-        mainArtifact(jar) {
-            displayName = "[${config.mc_version}] ${config.mod_name} - ${config.mod_version}"
+tasks.register(curseforgeUploadTaskName) {
+    group = "upload"
+    description = "Uploads the built runtime jar to CurseForge using project.toml settings."
+    dependsOn("validateUploadConfiguration")
+    dependsOn("reobfJar")
+    onlyIf { hasCurseforgeTarget }
+    doLast {
+        def token = System.env.CURSEFORGE_TOKEN ?: template.curseforgeToken ?: ""
+        def relations = []
+        [required_mods: "requiredDependency", optional_mods: "optionalDependency", incompatible_mods: "incompatible", embedded_mods: "embeddedLibrary"].each { relationKey, relationType ->
+            curseforgeRelationSlugs(relationKey).each { slug -> relations << [slug: slug, type: relationType] }
         }
-
-        def reqDeps = new ArrayList()
-        def optDeps = new ArrayList()
-        def incompat = new ArrayList()
-        def embLibs = new ArrayList()
-
-        def mods = config.required_mods.split(";")
-        if (mods.length > 0 && (mods.length > 1 || !mods[0].isEmpty()))
-            for (final def one in mods) {
-                if (one.isBlank()) continue
-                if (one.startsWith("@")) {
-                    def pars = one.substring(1).split(":", 2)
-                    if (pars[0].equalsIgnoreCase("c")) {
-                        reqDeps.add pars[1].trim()
-                    }
-                } else
-                    reqDeps.add one.trim()
-            }
-
-        mods = config.optional_mods.split(";")
-        if (mods.length > 0 && (mods.length > 1 || !mods[0].isEmpty()))
-            for (final def one in mods) {
-                if (one.isBlank()) continue
-                if (one.startsWith("@")) {
-                    def pars = one.substring(1).split(":", 2)
-                    if (pars[0].equalsIgnoreCase("c")) {
-                        optDeps.add pars[1].trim()
-                    }
-                } else
-                    optDeps.add one.trim()
-            }
-
-        mods = config.incompatible_mods.split(";")
-        if (mods.length > 0 && (mods.length > 1 || !mods[0].isEmpty()))
-            for (final def one in mods) {
-                if (one.isBlank()) continue
-                if (one.startsWith("@")) {
-                    def pars = one.substring(1).split(":", 2)
-                    if (pars[0].equalsIgnoreCase("c")) {
-                        incompat.add pars[1].trim()
-                    }
-                } else
-                    incompat.add one.trim()
-            }
-
-        mods = config.embedded_mods.split(";")
-        if (mods.length > 0 && (mods.length > 1 || !mods[0].isEmpty()))
-            for (final def one in mods) {
-                if (one.isBlank()) continue
-                if (one.startsWith("@")) {
-                    def pars = one.substring(1).split(":", 2)
-                    if (pars[0].equalsIgnoreCase("c")) {
-                        embLibs.add pars[1].trim()
-                    }
-                } else
-                    embLibs.add one.trim()
-            }
-
-        if (reqDeps.size() > 0 || optDeps.size() > 0 || incompat.size() > 0 || embLibs.size() > 0) {
-            relations {
-                reqDeps.each { dep ->
-                    requiredDependency dep
-                }
-                optDeps.each { dep ->
-                    optionalDependency dep
-                }
-                incompat.each { dep ->
-                    incompatible dep
-                }
-                embLibs.each { dep ->
-                    embeddedLibrary dep
-                }
-            }
+        def metadata = [
+            changelog    : curseforgeChangelogText,
+            changelogType: template.publishCurseforge.changelogType,
+            displayName  : template.publishCurseforge.displayName,
+            gameVersions : template.publishCurseforge.gameVersions,
+            releaseType  : template.releaseType
+        ]
+        if (template.publishCurseforge.manualRelease) metadata.isManualRelease = true
+        if (template.publishCurseforge.parentFileId > 0L) metadata.parentFileID = template.publishCurseforge.parentFileId
+        if (!relations.isEmpty()) metadata.relations = [projects: relations]
+        def boundary = "----PickAID${System.currentTimeMillis()}"
+        def connection = (HttpURLConnection) new URL("https://minecraft.curseforge.com/api/projects/${template.curseforgeProject}/upload-file").openConnection()
+        connection.setRequestMethod("POST")
+        connection.setDoOutput(true)
+        connection.setRequestProperty("X-Api-Token", token)
+        connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=${boundary}")
+        connection.outputStream.withCloseable { output ->
+            writeMultipartText(output, boundary, "metadata", groovy.json.JsonOutput.toJson(metadata))
+            writeMultipartFile(output, boundary, "file", runtimeUploadJar.get().asFile)
+            output.write("--${boundary}--\r\n".getBytes("UTF-8"))
         }
+        def responseCode = connection.responseCode
+        def responseText = responseCode >= 400 ? connection.errorStream?.getText("UTF-8") : connection.inputStream?.getText("UTF-8")
+        if (responseCode < 200 || responseCode >= 300) {
+            throw new GradleException("CurseForge upload failed with HTTP ${responseCode}: ${responseText ?: ''}")
+        }
+        logger.lifecycle("CurseForge upload accepted: ${responseText ?: "HTTP ${responseCode}"}")
     }
 }
 
@@ -750,19 +717,47 @@ publish.dependsOn('reobfJar')
 
 build.dependsOn signJar
 
-tasks.register('buildAndUploadMod') {
+def validateUploadConfiguration = tasks.register('validateUploadConfiguration') {
     group = "upload"
-    dependsOn "curseforge${config.cf_project}", 'modrinth'
 
     doLast {
-        println "Upload complete."
+        modrinthChangelogText
+        curseforgeChangelogText
+
+        if (!hasModrinthTarget && !hasCurseforgeTarget) {
+            throw new GradleException("At least one upload platform must be configured")
+        }
+
+        if (!(template.releaseType in ["alpha", "beta", "release"])) {
+            throw new GradleException("release_type must be one of alpha, beta, release")
+        }
+
+        def modrinthToken = System.env.MODRINTH_TOKEN ?: template.modrinthToken ?: ""
+        if (hasModrinthTarget && !modrinthToken.trim()) {
+            throw new GradleException("MODRINTH_TOKEN or publish.modrinth.token or publish.modrinth_token is required when Modrinth publishing is configured")
+        }
+
+        def curseforgeToken = System.env.CURSEFORGE_TOKEN ?: template.curseforgeToken ?: ""
+        if (hasCurseforgeTarget && !curseforgeToken.trim()) {
+            throw new GradleException("CURSEFORGE_TOKEN or publish.curseforge.token or publish.curseforge_token is required when CurseForge publishing is configured")
+        }
     }
 }
 
-afterEvaluate {
-    if (!config.maven_url.isEmpty()) {
-        tasks["curseforge${config.cf_project}"].dependsOn.add(publish)
-        tasks["modrinth"].dependsOn.add(publish)
+tasks.register('buildAndUploadMod') {
+    group = "upload"
+    dependsOn validateUploadConfiguration
+    dependsOn "reobfJar"
+
+    if (hasModrinthTarget) {
+        dependsOn modrinthUploadTaskName
+    }
+    if (hasCurseforgeTarget) {
+        dependsOn curseforgeUploadTaskName
+    }
+
+    doLast {
+        println "Upload complete."
     }
 }
 
@@ -816,16 +811,17 @@ import java.nio.file.Files
 
 
 def incrementBuild = {
-    if (hasConfig("formal_version") || Boolean.parseBoolean(config.formal_version)) {
+    if (rootProject.ext.hasConfig.call("formal_version") || Boolean.parseBoolean(config.formal_version)) {
         def buildTxt = configFile.toPath()
         List<String> lines = Files.readAllLines buildTxt
         lines.replaceAll { String ln ->
-            if (ln.startsWith("mod_version")) {
-                def version = ln.split("=")[1]
+            if (ln ==~ /\s*version\s*=\s*".*"\s*/) {
+                def matcher = (ln =~ /"([^"]+)"/)
+                def version = matcher[0][1]
                 def dot = version.lastIndexOf('.') + 1
                 def newVersion = version.substring(0, dot)
                 def lastOne = Integer.parseInt(version.substring(dot)) + 1
-                return "mod_version=" + newVersion + lastOne
+                return 'version = "' + newVersion + lastOne + '"'
             }
             return ln
         }

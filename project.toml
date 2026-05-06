@@ -1,0 +1,92 @@
+schema_version = 1
+template_version = "1.20.1-template-1.0.0"
+
+[mod]
+mod_id = "passiveintegration"
+mod_name = "PassiveIntegration"
+version = "0.1.5"
+version_suffix = ""
+group = "com.mihono.pickaid"
+authors = ["CrychicTeam-M1hono"]
+license = "MIT"
+description = "Passive Skill Tree Integration.\\nManaged content and editor sync helpers for Passive Skill Tree."
+credits = "None"
+issue_tracker_url = "https://github.com/CrychicTeam/PassiveSkillTreeIntegration/issues"
+
+[features]
+jei = false
+curios = true
+geckolib = true
+player_animator = true
+mixin_extras = true
+
+[overrides]
+# Optional built-in feature version overrides.
+# jei_version = "15.2.0.27"
+curios_version = "5.14.1+1.20.1"
+geckolib_version = "4.4.9"
+player_animator_version = "1.0.2-rc1+1.20"
+bendylib_version = "4.0.0"
+mixin_extras_version = "0.2.0-beta.8"
+
+[repositories]
+# Common ecosystem repositories are listed directly so the project surface stays visible.
+blamejared = "https://maven.blamejared.com/"
+tterrag = "https://maven.tterrag.com/"
+sponge = "https://repo.spongepowered.org/maven"
+geckolib = "https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/"
+curios = "https://maven.theillusivec4.top/"
+kosmx = "https://maven.kosmx.dev/"
+cursemaven = "https://cursemaven.com"
+architectury = "https://maven.architectury.dev"
+latvian = "https://maven.latvian.dev/releases"
+jitpack = "https://jitpack.io"
+
+[dependencies.deobf_implementation]
+attribute_fix = "curse.maven:attributefix-280510:7612291"
+max_health_fix = "curse.maven:max-health-fix-492246:7612769"
+target_dummy = "curse.maven:mmmmmmmmmmmm-225738:4602101"
+selene = "curse.maven:selene-499980:7664875"
+appleskin = "curse.maven:appleskin-248787:4605078"
+item_production_lib = "curse.maven:item-production-lib-950401:5114036"
+framework = "curse.maven:framework-549225:7573740"
+
+[dependencies.deobf_compile_only]
+mrcrayfish_gun = "curse.maven:mrcrayfishs-gun-mod-unofficial-945471:7041829"
+tacz = "curse.maven:timeless-and-classics-zero-1028108:7745481"
+point_blank = "curse.maven:vics-point-blank-961053:7664533"
+vanilla_animated_guns = "curse.maven:vanilla-animated-guns-1357310:7056729"
+scorched_guns = "curse.maven:scorched-guns-802940:7232063"
+just_enough_guns = "curse.maven:just-enough-guns-820727:6808139"
+
+[dependencies.deobf_runtime_only]
+architectury = "dev.architectury:architectury-forge:9.1.12"
+rhino = "dev.latvian.mods:rhino-forge:2001.2.2-build.18"
+kubejs = "dev.latvian.mods:kubejs-forge:2001.6.5-build.16"
+caelus = "curse.maven:caelus-308989:5281700"
+irons_spellbooks = "io.redspace.ironsspellbooks:irons_spellbooks:1.20.1-3.4.0.4"
+tacz = "curse.maven:timeless-and-classics-zero-1028108:7745481"
+vanilla_animated_guns = "curse.maven:vanilla-animated-guns-1357310:7056729"
+just_enough_guns = "curse.maven:just-enough-guns-820727:6808139"
+
+[publish]
+maven_url = ""
+curseforge_project = 0
+modrinth_project = ""
+release_type = "alpha"
+
+[publish.mods]
+game_versions = ["1.20.1"]
+loaders = ["forge"]
+
+[publish.modrinth]
+changelog_file = "CHANGELOG.md"
+changelog_section = "version"
+
+[publish.curseforge]
+changelog_file = "CHANGELOG.md"
+changelog_section = "version"
+
+[naming]
+archive_name = "PassiveIntegration"
+jar_format = "{archive_name}-{mc_version}-{version}"
